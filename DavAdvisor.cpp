@@ -28,18 +28,31 @@ void Advisor::prepare()
 	skillByLevel[4] = model::SKILL_MAGICAL_DAMAGE_ABSORPTION_AURA_2;
 	skillByLevel[5] = model::SKILL_SHIELD;
 
-	skillByLevel[6] = model::SKILL_MOVEMENT_BONUS_FACTOR_PASSIVE_1;
-	skillByLevel[7] = model::SKILL_MOVEMENT_BONUS_FACTOR_AURA_1;
-	skillByLevel[8] = model::SKILL_MOVEMENT_BONUS_FACTOR_PASSIVE_2;
-	skillByLevel[9] = model::SKILL_MOVEMENT_BONUS_FACTOR_AURA_2;
-	skillByLevel[10] = model::SKILL_HASTE;
+	skillByLevel[6] = model::SKILL_MAGICAL_DAMAGE_BONUS_PASSIVE_1;
+	skillByLevel[7] = model::SKILL_MAGICAL_DAMAGE_BONUS_AURA_1;
+	skillByLevel[8] = model::SKILL_MAGICAL_DAMAGE_BONUS_PASSIVE_2;
+	skillByLevel[9] = model::SKILL_MAGICAL_DAMAGE_BONUS_AURA_2;
+	skillByLevel[10] = model::SKILL_FROST_BOLT;
 
-	skillByLevel[11] = model::SKILL_MAGICAL_DAMAGE_BONUS_PASSIVE_1;
-	skillByLevel[12] = model::SKILL_MAGICAL_DAMAGE_BONUS_AURA_1;
-	skillByLevel[13] = model::SKILL_MAGICAL_DAMAGE_BONUS_PASSIVE_2;
-	skillByLevel[14] = model::SKILL_MAGICAL_DAMAGE_BONUS_AURA_2;
-	skillByLevel[15] = model::SKILL_FROST_BOLT;
-	
+	skillByLevel[11] = model::SKILL_RANGE_BONUS_PASSIVE_1;
+	skillByLevel[12] = model::SKILL_RANGE_BONUS_AURA_1;
+	skillByLevel[13] = model::SKILL_RANGE_BONUS_PASSIVE_2;
+	skillByLevel[14] = model::SKILL_RANGE_BONUS_AURA_2;
+	skillByLevel[15] = model::SKILL_ADVANCED_MAGIC_MISSILE;
+
+	skillByLevel[16] = model::SKILL_MOVEMENT_BONUS_FACTOR_PASSIVE_1;
+	skillByLevel[17] = model::SKILL_MOVEMENT_BONUS_FACTOR_AURA_1;
+	skillByLevel[18] = model::SKILL_MOVEMENT_BONUS_FACTOR_PASSIVE_2;
+	skillByLevel[19] = model::SKILL_MOVEMENT_BONUS_FACTOR_AURA_2;
+	skillByLevel[20] = model::SKILL_HASTE;
+
+	skillByLevel[21] = model::SKILL_STAFF_DAMAGE_BONUS_PASSIVE_1;
+	skillByLevel[22] = model::SKILL_STAFF_DAMAGE_BONUS_AURA_1;
+	skillByLevel[23] = model::SKILL_STAFF_DAMAGE_BONUS_PASSIVE_2;
+	skillByLevel[24] = model::SKILL_STAFF_DAMAGE_BONUS_AURA_2;
+	skillByLevel[25] = model::SKILL_FIREBALL;
+
+		
 		/*
 		SKILL_RANGE_BONUS_PASSIVE_1 = 0,
 		SKILL_RANGE_BONUS_AURA_1 = 1,

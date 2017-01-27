@@ -56,9 +56,6 @@ namespace dav
 		int curGlobalIndex;
 		int curLocalIndex;		
 
-		Point2D prevPos;
-		bool isMoving;
-
 		bool move();
 				
 		//Point2D getNextWaypoint();
@@ -85,11 +82,6 @@ namespace dav
 	{
 	protected:
 
-		std::vector<Object2D> targets;
-
-		void updateTargets();
-
-		Object2D * getNearestTarget();
 
 	public:
 

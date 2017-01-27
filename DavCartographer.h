@@ -54,9 +54,7 @@ namespace dav
 
 		int getBestLane(const Point2D & beginPoint, const Point2D & endPoint) const;
 		double calcOverheads(const Point2D & beginPoint, const Point2D & endPoint, int lane) const;
-
-		bool getNearestPlace(const Point2D & desiredEndPoint, Point2D & result) const;
-		bool getPlaceAround(LocalMap::CellContent content, Point2D & result) const;
+		void calcLaneFragment(const Point2D & beginPoint, const Point2D & endPoint, int lane, std::vector<Point2D> & result) const;
 	
 	public:
 		
@@ -82,9 +80,41 @@ namespace dav
 		bool calcWayByLane(const Point2D & endPoint, std::vector<Point2D> & result) const;
 		bool calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & result) const;
 
-		double getNearEnemyDistance()  const;
-		void getEnemies(const Point2D & position, double scanRadius, std::vector<Object2D> & result) const;
+		double getNearEnemyDistance()  const
+		{
+			return locMap.getEnemyDistance();
+		}
+
+		double getNearAllyDistance()  const
+		{
+			return locMap.getAllyDistance();
+		}
+
+		const std::vector<const model::CircularUnit *> & getNearEnemies( ) const
+		{
+			return locMap.getEnemies();
+		}
+
+		const std::vector<const model::CircularUnit *> &  getNearAllies() const
+		{
+			return locMap.getAllies();
+		}
 		
+		const model::CircularUnit * getNearestEnemy() const
+		{
+			return locMap.getNearestEnemy();
+		}
+
+		const model::CircularUnit *getNearestAlly() const
+		{
+			return locMap.getNearestAlly();
+		}
+
+		const bool isDirectMovePossible(const Point2D & targetPoint) const
+		{
+			return locMap.isDirectMovePossible(targetPoint);
+		}
+
 		~Cartographer();
 	};
 

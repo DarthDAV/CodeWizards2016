@@ -72,8 +72,7 @@ void Cartographer::prepareDefaultWays()
 	middleLane.push_back(Point2D(200, 3400));
 	middleLane.push_back(Point2D(600, 3400));
 	middleLane.push_back(Point2D(800, 3000));
-	middleLane.push_back(Point2D(820, 2850));
-	middleLane.push_back(Point2D(1020, 2800));
+	middleLane.push_back(Point2D(1020, 3000));
 	middleLane.push_back(Point2D(1200, 2800));
 	middleLane.push_back(Point2D(1400, 2600));
 	middleLane.push_back(Point2D(1600, 2600));
@@ -169,34 +168,9 @@ void Cartographer::update()
 bool Cartographer::calcWayByLane(const Point2D & endPoint, std::vector<Point2D> & result) const
 {
 	const Point2D & beginPoint = self.getCenter();
-	
-	result.clear();
-	result.push_back(beginPoint);
-
 	int laneIndex = getBestLane(beginPoint, endPoint);
-
-	const std::vector<Point2D> & points = laneWaypoints[laneIndex];
-	int indexNearBegin = beginPoint.findNearestIndex(points);
-	int indexNearEnd = endPoint.findNearestIndex(points);
-
-	if (indexNearBegin < indexNearEnd)
-	{
-		for (int i = indexNearBegin; i <= indexNearEnd; ++i)
-		{
-			result.push_back(points[i]);
-		}
-	}
-	else
-	{
-		for (int i = indexNearBegin; i >= indexNearEnd; --i)
-		{
-			result.push_back(points[i]);
-		}
-
-	}
-
-	result.push_back(endPoint);
-	return true;
+	calcLaneFragment(beginPoint, endPoint, laneIndex, result);	
+	return result.size();
 }
 
 int Cartographer::getBestLane(const Point2D & beginPoint, const Point2D & endPoint) const
@@ -232,83 +206,75 @@ double Cartographer::calcOverheads(const Point2D & beginPoint, const Point2D & e
 	return points[indexNearBegin].getDistanceTo(beginPoint) + points[indexNearEnd].getDistanceTo(endPoint);
 }
 
-bool Cartographer::calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & result) const
+void Cartographer::calcLaneFragment(const Point2D & beginPoint, const Point2D & endPoint, int lane, std::vector<Point2D> & result) const
 {
 	result.clear();
 
-	const Point2D & beginPoint = self.getCenter();
+	const std::vector<Point2D> & points = laneWaypoints[lane];
+	int indexBegin = beginPoint.findNearestIndex(points);
+	int indexEnd = endPoint.findNearestIndex(points);
 
-	Point2D endPoint;//Окончание пути с учётом свободного места
-	if (!getNearestPlace(desiredEndPoint, endPoint))
+	if (std::abs(indexEnd - indexBegin) > 2)
 	{
-		return false;
-	}
-		
-	return locMap.calcWay(endPoint, result);
-}
+		int alternativeBeginIndex = 0;
+		int alternativeEndIndex = 0;
 
-bool Cartographer::getNearestPlace(const Point2D & desiredEndPoint, Point2D & result) const
-{
-	Point2D normEndPos;
-	if (!locMap.normalize(desiredEndPoint, normEndPos))
-	{
-		return false;
-	}
-		
-	int row, col;
-	if (!locMap.getCellPos(normEndPos, row, col))
-	{
-		return false;
-	}
-	
-	LocalMap::CellContent content = locMap.cell(row, col).content;
-	if (content == LocalMap::ccEmpty)
-	{
-		result = normEndPos;
-		return true;
-	}
-	
-	Point2D aroundPos;
-	if (getPlaceAround(LocalMap::ccEmpty, aroundPos))
-	{
-		result = aroundPos;
-		return true;
-	}
-
-	return false;
-}
-
-bool Cartographer::getPlaceAround(LocalMap::CellContent content, Point2D & result) const
-{
-	//Поиск ближайщего свободного места
-	int row, col;
-	if (!locMap.findFirstAround(content, row, col))
-	{
-		return false;
-	}
-	
-	return locMap.cellToPos(row, col, result);
-}
-
-double Cartographer::getNearEnemyDistance()  const
-{
-	std::vector<Object2D> enemies;
-	getEnemies(self.getCenter(), 1000, enemies);
-	
-	double minDistance = env->world->getHeight();
-	for (int i = 0; i < enemies.size(); ++i)
-	{
-		double distance = enemies[i].getCenter().getDistanceTo(self.getCenter());
-		if (distance < minDistance)
+		if (indexBegin < indexEnd)
 		{
-			minDistance = distance;
+			alternativeBeginIndex = indexBegin + 1;
+			alternativeEndIndex = indexEnd - 1;
+		}
+		else
+		{
+			alternativeBeginIndex = indexBegin - 1;
+			alternativeEndIndex = indexEnd + 1;
+		}
+
+		double ditanceBGW = points[indexBegin].getDistanceTo(points[alternativeBeginIndex]);
+		double ditanceBLW = beginPoint.getDistanceTo(points[alternativeBeginIndex]);
+
+		if (ditanceBGW > ditanceBLW)
+		{
+			indexBegin = alternativeBeginIndex;
+		}
+
+		double ditanceEGW = points[indexEnd].getDistanceTo(points[alternativeEndIndex]);
+		double ditanceELW = endPoint.getDistanceTo(points[alternativeEndIndex]);
+
+		if (ditanceEGW > ditanceELW)
+		{
+			indexEnd = alternativeEndIndex;
 		}
 	}
-	
-	return minDistance;
+
+	result.push_back(beginPoint);
+
+	if (indexBegin < indexEnd)
+	{
+		for (int i = indexBegin; i <= indexEnd; ++i)
+		{
+			result.push_back(points[i]);
+		}
+	}
+	else
+	{
+		for (int i = indexBegin; i >= indexEnd; --i)
+		{
+			result.push_back(points[i]);
+		}
+
+	}
+
+	result.push_back(endPoint);
 }
 
-void Cartographer::getEnemies(const Point2D & position, double scanRadius, std::vector<Object2D> & result) const
+bool Cartographer::calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & result) const
+{
+	return locMap.calcWay(desiredEndPoint, result);
+}
+
+/*
+void Cartographer::getEnemies(std::vector<Object2D> & result) const
 {
 	result.clear();
 
@@ -362,7 +328,7 @@ void Cartographer::getEnemies(const Point2D & position, double scanRadius, std::
 		result.push_back(Object2D(minion));
 	}
 
-}
+}*/
 
 Cartographer::~Cartographer()
 {
@@ -397,56 +363,6 @@ for (int i = 0; i < cell->trees.size(); ++i) {
 Object2D object(*(cell->trees[i]));
 result.push_back(object);
 }
-}
-
-
-bool Cartographer::haveCollisions() const
-{
-//Проверка соприкосновения в своей ячейки
-const Map::Cell * whoCell = map->findCell(who);
-if (haveCollisions(who, whoCell))
-{
-return true;
-}
-
-//Окружающие ячейки
-//TODO
-
-return false;
-}
-
-bool Cartographer::haveCollisions( const Map::Cell * cell) const
-{
-for (int i = 0; i < cell->buildings.size(); ++i) {
-if (who.isCollision(*(cell->buildings[i])))
-{
-return true;
-}
-}
-
-for (int i = 0; i < cell->wizards.size(); ++i) {
-if (who.isCollision(*(cell->wizards[i])))
-{
-return true;
-}
-}
-
-for (int i = 0; i < cell->minions.size(); ++i) {
-if (who.isCollision(*(cell->minions[i])))
-{
-return true;
-}
-}
-
-for (int i = 0; i < cell->trees.size(); ++i) {
-if (who.isCollision(*(cell->trees[i])))
-{
-return true;
-}
-}
-
-return false;
-
 }
 
 */

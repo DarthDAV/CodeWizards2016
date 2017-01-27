@@ -74,7 +74,7 @@ namespace dav
 			return getDistanceTo(unit.getX(), unit.getY());
 		} 
 
-		static bool getCentersDistance(const model::CircularUnit & some, const model::CircularUnit & other)
+		static double getCentersDistance(const model::CircularUnit & some, const model::CircularUnit & other)
 		{
 			return std::hypot(some.getX() - other.getX(), some.getY() - other.getY());
 		}

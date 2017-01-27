@@ -120,6 +120,9 @@ namespace dav
 		const int SELF_ROW = 10;
 		const int SELF_COL = 10;
 
+		const double NEAR_DISTANCE = 200.0;
+		const double COLLISION_RISK = 5.0;
+
 	private:		
 		
 		Point2D selfPos;
@@ -128,20 +131,33 @@ namespace dav
 
 		Cell cells[21][21];
 
-		int AroundCoord[_Direction_Count][2];
-		bool collisions[_Direction_Count];
+		int aroundCoord[_Direction_Count][2];
+		int aroundShift[_Direction_Count][2];
 		const Cell * aroundCells[_Direction_Count];
 		
-		LocalMap::Direction calcDirection(const Point2D & endPoint) const;
-
+		double nearestEnemyDistance, nearestAllyDistance;
+		const model::CircularUnit *nearestEnemy, *nearestAlly;
+		std::vector<const model::CircularUnit *> enemies;
+		std::vector<const model::CircularUnit *> allies;
+		std::vector<const model::CircularUnit *> nearUnits;
+		
 		void clear();
 
 		void updateCollisions();
 
+		bool getNearestPlace(const Point2D & desiredEndPoint, Point2D & result) const;
+		
+		Direction calcDirection(const Point2D & beginPoint, const Point2D & endPoint) const;
 		Direction prevDirecton(Direction direction) const;
 		Direction nextDirecton(Direction direction) const;
 
-		bool isCanMove(Direction direction) const;
+		bool isCanMoveDirect(Direction direction) const;
+
+		bool getNearCell(int midRow, int midCol, Direction direction, int &resultRow, int &resultCol) const;
+
+		bool isPossibleCollision(const Point2D & point, std::vector<const model::CircularUnit *> & result) const;
+		
+		void convertCollisions(const Point2D & position, const std::vector<const model::CircularUnit *> & positionCollisionUnits, bool * collisions) const;
 
 	public:
 		
@@ -153,24 +169,26 @@ namespace dav
 
 		void fixing();
 
+		double getEnemyDistance() const
+		{
+			return nearestEnemyDistance;
+		}
+
+		double getAllyDistance() const
+		{
+			return nearestAllyDistance;
+		}
+
 		const Cell & cell(int row, int col) const
 		{
-			/*if (row < 0 && row < ROWS_COUNT)
-			{
-				return ccUnknown;
-			}
-			else if (col < 0 && col > COLS_COUNT)
-			{
-				return ccUnknown;
-			}*/
-
+			//TODOD
 			return cells[row][col];
 		}
 
 		const Cell & cell(Direction direction) const
 		{
-			int row = AroundCoord[direction][0];
-			int col = AroundCoord[direction][1];
+			int row = aroundCoord[direction][0];
+			int col = aroundCoord[direction][1];
 			return cell(row, col);
 		}
 
@@ -180,8 +198,8 @@ namespace dav
 
 		bool cellToPos(Direction direction, Point2D & result) const
 		{
-			int row = AroundCoord[direction][0];
-			int col = AroundCoord[direction][1];
+			int row = aroundCoord[direction][0];
+			int col = aroundCoord[direction][1];
 			return cellToPos(row, col, result);
 		}
 
@@ -189,7 +207,44 @@ namespace dav
 
 		bool findFirstAround(CellContent needContent, int & row, int & col) const;
 
-		bool calcWay(Point2D & desiredEndPoint, std::vector<Point2D> & result) const;
+		bool calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & result) const;
+
+		const std::vector<const model::CircularUnit *> & getEnemies() const
+		{
+			return enemies;
+		}
+
+		const std::vector<const model::CircularUnit *> & getAllies() const
+		{
+			return allies;
+		}
+
+		const model::CircularUnit * getNearestEnemy() const
+		{
+			return nearestEnemy;
+		}
+
+		const model::CircularUnit *getNearestAlly() const
+		{
+			return nearestAlly;
+		}
+		
+		bool isValid(int row, int col) const
+		{
+			if (row < 0 && row > ROWS_COUNT)
+			{
+				return false;
+			}
+			else if (col < 0 && col > COLS_COUNT)
+			{
+				return false;
+			}
+
+			return true;
+		}
+
+		const bool isDirectMovePossible(const Point2D & targetPoint) const;
+
 	};
 
 }
