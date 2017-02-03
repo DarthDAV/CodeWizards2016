@@ -45,7 +45,7 @@ namespace dav
 		LocalMap locMap;
 		Object2D self;
 		
-		const double NEAR_BASE = 1200.0;
+		const double NEAR_BASE = 1500.0;
 		model::Faction enemiesFaction, alliesFaction;
 		std::vector<Point2D> laneWaypoints[3];
 

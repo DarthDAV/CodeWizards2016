@@ -183,7 +183,7 @@ Tactics::TacticsStatus BattleTactics::work()
 		return status;
 	}
 
-	if ((distance < 150.0 && cg->getNearAllyDistance() > 200.0) || env->self->getLife() < 60.0)
+	if ((cg->getNearEnemyDistance() < 300.0 && cg->getNearAllyDistance() > 155.0) || env->self->getLife() < 40.0)
 	{
 		//TODO Отступление
 		env->move->setSpeed(-1.0*env->getMaxBackwardSpeed());
@@ -199,7 +199,7 @@ Tactics::TacticsStatus BattleTactics::work()
 	}
 
 	double angle = env->self->getAngleTo(*target);
-	if (abs(angle) > env->game->getStaffSector() / 1.6)
+	if (abs(angle) > env->game->getStaffSector() / 2.3)
 	{
 		env->move->setTurn(angle);
 		return status;
@@ -230,7 +230,10 @@ Tactics::TacticsStatus BattleTactics::work()
 	env->move->setMinCastDistance(distance - target->getRadius() + env->game->getMagicMissileRadius());
 	env->move->setAction(action);
 
-	env->move->setTurn(angle);
+	if (env->move->getSpeed() == 0.0)
+	{
+		env->move->setTurn(angle);
+	}
 
 	return status;
 }

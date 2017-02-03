@@ -51,7 +51,8 @@ namespace dav
 
 		};
 
-		const double LOW_HEALTH = 0.23;
+		const double LOW_HEALTH = 0.35;
+		const double NORM_HEALTH = 0.55;
 		const int ORDER_COUNTDOWN = 600;
 		int orderCountdown;
 				
@@ -92,7 +93,8 @@ namespace dav
 		bool isBaseInDanger();		
 		void retreatToBase();
 		
-		bool isLowHealth();		
+		bool isLowHealth();	
+		bool isNormHealth();
 		void retreatToNearAlliedBuilding();
 		
 		bool ifMetEnemy();	

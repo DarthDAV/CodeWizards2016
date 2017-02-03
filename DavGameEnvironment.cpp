@@ -60,6 +60,21 @@ bool GameEnvironment::getActionRechargeTime(model::ActionType actionType) const
 	return std::max(self->getRemainingActionCooldownTicks(), (self->getRemainingCooldownTicksByAction()[actionType]) );
 }
 
+bool GameEnvironment::isSkillLeanded(model::SkillType skill) const
+{
+	const std::vector<model::SkillType> & selfSkills = self->getSkills();
+	for (int i = 0; i < selfSkills.size(); ++i)
+	{
+		if (selfSkills[i] == skill)
+		{
+			return true;
+		}
+	}
+	
+	return false;
+	//TODO return learnedSkills[skill];
+}
+
 GameEnvironment::~GameEnvironment()
 {
 }

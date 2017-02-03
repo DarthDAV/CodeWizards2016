@@ -23,15 +23,12 @@ namespace dav
 		const model::Game * game;
 		model::Move * move;
 		
-		void setSkillLeanded(int skill, bool learned)
+		void setSkillLeanded(model::SkillType skill, bool learned)
 		{
 			learnedSkills[skill] = learned;
 		}
 
-		bool isSkillLeanded(int skill) const
-		{
-			return learnedSkills[skill];
-		}
+		bool isSkillLeanded(model::SkillType skill) const;
 
 		void initializeRandom(long int seed) ;
 		bool randomBool() const;

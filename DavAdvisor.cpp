@@ -207,6 +207,11 @@ void Advisor::work()
 	{
 		retreatToBase();
 	}
+	else if (isNormHealth() && stageIt->getGoal() == Stage::sgRetreatToPoint)
+	{
+		nextStage();
+		useStageTactics();
+	}
 	else if (isLowHealth())
 	{
 		retreatToNearAlliedBuilding();
@@ -287,17 +292,16 @@ void Advisor::skillLearn()
 	}
 
 	int curLevel = env->self->getLevel();
-
-	if (curLevel <= lastLevelUp)
+	for (int i = 1; i <= curLevel; ++i)//TODO lastLevelUp
 	{
-		return;
+		model::SkillType skill = getSkill(i);
+		if (!env->isSkillLeanded(skill))
+		{
+			lastLevelUp = curLevel;
+			env->move->setSkillToLearn(skill);			
+			return;
+		}		
 	}
-
-	lastLevelUp = curLevel;
-
-	model::SkillType skill = getSkill(curLevel);
-	env->move->setSkillToLearn(skill);
-	env->setSkillLeanded(skill, true);
 }
 
 model::SkillType Advisor::getSkill(int level)
@@ -327,8 +331,7 @@ bool Advisor::isBaseInDanger()
 		return false;
 	}
 
-	auto  alliesNearBase = cg->getAlliesNearBase();
-	if (alliesNearBase.size() < enemiesNearBase.size())
+	if (enemiesNearBase.size() > 2)
 	{
 		return true;
 	}
@@ -338,6 +341,11 @@ bool Advisor::isBaseInDanger()
 
 void Advisor::retreatToBase()
 {
+	if (stageIt->getGoal() == Stage::sgRetreatToPoint && stageIt->getPoint() == cg->getCollectionPoint(Cartographer::AB))
+	{
+		return;
+	}
+	
 	stageIt = plan.insert(stageIt, Stage(cg->getCollectionPoint(Cartographer::AB), Stage::sgRetreatToPoint));
 	useStageTactics();
 }
@@ -347,8 +355,18 @@ bool Advisor::isLowHealth()
 	return double(env->self->getLife()) / double(env->self->getMaxLife()) < LOW_HEALTH;
 }
 
+bool Advisor::isNormHealth()
+{
+	return double(env->self->getLife()) / double(env->self->getMaxLife()) > NORM_HEALTH;
+}
+
 void Advisor::retreatToNearAlliedBuilding()
 {
+	if (stageIt->getGoal() == Stage::sgRetreatToPoint)
+	{
+		return;
+	}	
+	
 	const model::Building * building = cg->getNearAlliedBuilding();
 	if (building == nullptr)
 	{
@@ -374,6 +392,11 @@ bool Advisor::isEnemyArea()
 
 void Advisor::joinBattle()
 {
+	if (stageIt->getGoal() == Stage::sgDestroyEnemy)
+	{
+		return;
+	}
+	
 	stageIt = plan.insert(stageIt, Stage(cg->getSelf().getCenter(), Stage::sgDestroyEnemy));
 	useStageTactics();
 }

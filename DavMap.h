@@ -50,9 +50,9 @@ namespace dav
 		const int SELF_ROW = 10;
 		const int SELF_COL = 10;
 
-		const double NEAR_DISTANCE = 200.0;
-		const double COLLISION_RISK = 3.0;
-		const double BLOCKED_ALERT = 70;
+		const double NEAR_DISTANCE = 210.0;
+		const double COLLISION_RISK = 7.5;
+		const double BLOCKED_ALERT = 50.0;
 
 	private:		
 		

@@ -219,9 +219,6 @@ bool LocalMap::normalize(const Point2D & pos, Point2D & normPos) const
 
 void LocalMap::fixing()
 {
-	//TODO Лишнее захватывает Все отрицательные координаты остаются ccUnknown
-	//Остальное незанятое помечается как ccEmpty
-
 	double zeroX = zeroPos.getX();
 	double zeroY = zeroPos.getY();
 
@@ -294,7 +291,7 @@ char LocalMap::getText(CellContent content) const
 		case ccSelf:
 			return 'M';
 		case ccEmpty:
-			return '+';
+			return ' ';
 		case ccAlly:
 			return 'A';
 		case ccNeutral:
@@ -457,15 +454,15 @@ bool LocalMap::isCanMoveDirect(LocalMap::Direction direction) const
 
 		if (isDiag(direction))
 		{
-			if (collisions[direction] || collisions[prev] || collisions[next])
+			if (aroundCells[prev]->content != ccEmpty || aroundCells[next]->content != ccEmpty)
 			{
 				return false;
 			}
-		}		
-		else if (collisions[direction])
-		{
-			return false;
-		}
+			else if (collisions[prev] || collisions[next])
+			{
+				return false;
+			}
+		}			
 	}
 
 	Point2D endPoint;
@@ -570,6 +567,7 @@ bool LocalMap::getNearCell(int midRow, int midCol, LocalMap::Direction direction
 		return false;
 	}
 	
+	//TODO Больше радиус
 	resultRow = midRow + aroundShift[direction][0];
 	resultCol = midCol + aroundShift[direction][1];
 
@@ -584,7 +582,26 @@ bool LocalMap::getNearCell(int midRow, int midCol, LocalMap::Direction direction
 
 bool LocalMap::isWayBlocked(const Point2D & targetPoint)
 {
+	if (!nearUnits.size())
+	{
+		return false;
+	}	
+	
 	Direction direction = calcDirection(selfPos, targetPoint);
+	Direction prev = prevDirecton(direction);
+	Direction next = nextDirecton(direction);
+
+	if (aroundCells[direction]->content != ccEmpty)
+	{
+		return true;
+	}
+	else if (isDiag(direction))
+	{
+		if (aroundCells[prev]->content != ccEmpty || aroundCells[next]->content != ccEmpty)
+		{
+			return true;
+		}
+	}
 	
 	std::vector<const model::CircularUnit *> collisionUnits;
 	if (!isPossibleCollision(selfPos, BLOCKED_ALERT, collisionUnits))
@@ -595,13 +612,17 @@ bool LocalMap::isWayBlocked(const Point2D & targetPoint)
 	bool collisions[_Direction_Count];
 	convertCollisions(selfPos, collisionUnits, collisions);
 
-	Direction prev = prevDirecton(direction);
-	Direction next = nextDirecton(direction);
-
-	if (collisions[direction] || collisions[prev] || collisions[next])
+	if (collisions[direction])
 	{
 		return true;
 	}	
+	else if (isDiag(direction))
+	{
+		if (collisions[prev] || collisions[next])
+		{
+			return true;
+		}
+	}
 
 	return false;
 }
