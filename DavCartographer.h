@@ -4,6 +4,7 @@
 #define _DAV_CARTOGRAPHER_H_
 
 #include <vector>
+#include <list>
 #include "DavGeometry.h"
 #include "DavGameEnvironment.h"
 #include "DavMap.h"
@@ -35,26 +36,31 @@ namespace dav
 
 	protected:
 
-		Point2D Markers[_PointMarker_Size];
+		Point2D markers[_PointMarker_Size];
+		Point2D nearMarkers[_PointMarker_Size];
 
 		bool respawnDetected;
 		GameEnvironment * env;
-		Map * map;
 
 		LocalMap locMap;
-
 		Object2D self;
 		
-		model::Faction enemiesFaction;
-
+		const double NEAR_BASE = 1200.0;
+		model::Faction enemiesFaction, alliesFaction;
 		std::vector<Point2D> laneWaypoints[3];
+
+		std::vector<const model::LivingUnit *> alliesNearBase;
+		std::vector<const model::LivingUnit *> enemiesNearBase;
 	
 		void prepareMarkers();
 		void prepareDefaultWays();
 
-		int getBestLane(const Point2D & beginPoint, const Point2D & endPoint) const;
-		double calcOverheads(const Point2D & beginPoint, const Point2D & endPoint, int lane) const;
-		void calcLaneFragment(const Point2D & beginPoint, const Point2D & endPoint, int lane, std::vector<Point2D> & result) const;
+		model::LaneType getBestLane(const Point2D & beginPoint, const Point2D & endPoint) const;
+		double calcOverheads(const Point2D & beginPoint, const Point2D & endPoint, model::LaneType lane) const;
+		void calcLaneFragment(const Point2D & beginPoint, const Point2D & endPoint, model::LaneType lane, std::vector<Point2D> & result) const;
+
+		bool checkNearBase(const model::LivingUnit & unit);
+		double Cartographer::calcWayLen(const Point2D & beginPoint, const Point2D & endPoint, int laneBegin, int laneEnd, model::LaneType lane) const;
 	
 	public:
 		
@@ -62,8 +68,15 @@ namespace dav
 
 		const Point2D &  getPoint(PointMarker pointMarker)
 		{
-			return Markers[pointMarker];
+			return markers[pointMarker];
 		}
+
+		const Point2D &  get—ollectionPoint(PointMarker pointMarker)
+		{
+			return nearMarkers[pointMarker];
+		}
+
+		const Point2D &  getNearest—ollectionPoint(const Point2D & forPoint) const;
 
 		void update();
 
@@ -110,9 +123,41 @@ namespace dav
 			return locMap.getNearestAlly();
 		}
 
-		const bool isDirectMovePossible(const Point2D & targetPoint) const
+		const model::Building * getNearAlliedBuilding() const;
+
+		const std::vector<const model::LivingUnit *> & getEnemiesNearBase() const
 		{
-			return locMap.isDirectMovePossible(targetPoint);
+			return enemiesNearBase;
+		}
+
+		const std::vector<const model::LivingUnit *> & getAlliesNearBase()  const
+		{
+			return alliesNearBase;
+		}
+
+		model::LaneType whatLane(const Point2D & point) const;
+
+		void getWizards(model::Faction faction, std::list<const model::Wizard *> & result) const;
+
+		
+		model::Faction getEnemiesFaction() const
+		{
+			return enemiesFaction;
+		}
+		
+		model::Faction getAlliesFaction() const
+		{
+			return alliesFaction;
+		}
+
+		double getOptimalMoveSpeed(const Point2D & targetPoint)
+		{
+			if (locMap.isWayBlocked(targetPoint))
+			{
+				return 1.5;
+			}
+						
+			return env->getMaxForwardSpeed();
 		}
 
 		~Cartographer();

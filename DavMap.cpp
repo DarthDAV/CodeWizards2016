@@ -1,81 +1,10 @@
 #include "DavMap.h"
 
 #include <cstring>
+#include <iostream>//TODO
+#include <fstream>//TODO
 
 using namespace dav;
-
-Map::Map(int _worldWidth, int _worldHeight) : worldWidth(_worldWidth), worldHeight(_worldHeight)
-{
-	rowsCount = worldHeight / CELL_SIZE;
-	colsCount = worldWidth / CELL_SIZE;
-
-	cells = new Cell *[rowsCount];
-	for (size_t i = 0; i < rowsCount; i++)
-	{
-		cells[i] = new Cell[colsCount];
-	}
-}
-
-Map::Cell * Map::cell(int row, int col)
-{
-	return &cells[row][col];
-}
-
-Map::Cell * Map::findCell(int worldX, int worldY)
-{
-	int col = worldX / CELL_SIZE;
-	int row = worldY / CELL_SIZE;
-	return cell(row, col);
-}
-
-void Map::clear()
-{
-	for (size_t i = 0; i < rowsCount; i++)
-	{
-		for (size_t j = 0; j < colsCount; j++)
-		{
-			cells[i][j].clear();
-		}
-	}
-
-}
-
-void Map::add(const model::Building & building)
-{
-	Cell * cell = findCell(building.getX(), building.getY());
-	cell->isUnexplored = false;
-	cell->buildings.push_back(&building);	
-}
-
-void Map::add(const model::Wizard & wizard)
-{
-	Cell * cell = findCell(wizard.getX(), wizard.getY());
-	cell->isUnexplored = false;
-	cell->wizards.push_back(&wizard);
-}
-
-void Map::add(const model::Minion & minion)
-{
-	Cell * cell = findCell(minion.getX(), minion.getY());
-	cell->isUnexplored = false;
-	cell->minions.push_back(&minion);
-}
-
-void Map::add(const model::Tree & tree)
-{
-	Cell * cell = findCell(tree.getX(), tree.getY());
-	cell->isUnexplored = false;
-	cell->trees.push_back(&tree);
-}
-
-Map::~Map()
-{
-	for (size_t i = 0; i < rowsCount; i++)
-	{
-		delete[] cells[i];
-	}
-	delete[] cells;
-}
 
 LocalMap::LocalMap()
 {
@@ -140,7 +69,6 @@ void LocalMap::clear()
 
 	nearestEnemyDistance = 4000;
 	nearestAllyDistance = 4000;
-
 	nearestEnemy = nullptr;
 	nearestAlly = nullptr;
 
@@ -201,12 +129,52 @@ void LocalMap::add(const model::CircularUnit & unit)
 		enemies.push_back(&unit);
 	}
 
-	cells[row][col].content = content;
-	cells[row][col].unit = &unit;
+	Cell & cell = cells[row][col];
+
+	cell.content = content;
+	cell.unit = &unit;
 
 	if (selfPos.getDistanceTo(unit) <= NEAR_DISTANCE)
 	{
 		nearUnits.push_back(&unit);
+	}
+
+	setPartialAround(row, col);
+}
+
+void LocalMap::setPartialAround(int row, int col)
+{
+	const model::CircularUnit * unit = cells[row][col].unit;
+
+	int aRow, aCol;
+	for (int i = 0; i < _Direction_Count; ++i)
+	{
+		aRow = row + aroundShift[i][0];
+		aCol = col + aroundShift[i][1];
+
+		if (!isValid(aRow, aCol))
+		{
+			continue;
+		}
+
+		Cell & cell = cells[aRow][aCol];
+		if (cell.content != ccUnknown)
+		{
+			continue;
+		}
+
+		Point2D point;
+		if (!cellToPos(aRow, aCol, point))
+		{
+			continue;
+		}
+		
+		double distance = point.getDistanceTo(*unit);
+		if (distance < (unit->getRadius() + CELL_SIZE / 2.0 + COLLISION_RISK))
+		{
+			cell.content = ccPartialEmpty;
+		}
+
 	}
 }
 
@@ -268,7 +236,7 @@ void LocalMap::fixing()
 		for (size_t col = 0; col < COLS_COUNT; col++)
 		{						
 			double x = zeroX + col*CELL_SIZE;
-			if (x < 0 || x > 4000)
+			if (x < -6 || x > 4000)
 			{
 				continue;
 			}		
@@ -280,6 +248,64 @@ void LocalMap::fixing()
 		}
 	}
 
+}
+
+bool LocalMap::saveToFile()
+{
+	char textMap[21][22];
+	for (size_t row = 0; row < ROWS_COUNT; row++)
+	{
+		for (size_t col = 0; col < COLS_COUNT; col++)
+		{
+			char text;
+
+			text = getText(cells[row][col].content);			
+			textMap[row][col] = text;
+		}
+
+		textMap[row][21] = 0;
+	}
+
+	std::ofstream file("map.txt", std::ios_base::out | std::ios_base::app);
+	if (!file.is_open())
+	{
+		return false;
+	}
+	
+	file << "                     \n";
+	file << "---------------------\n";
+	file << "                     \n";
+
+	for (size_t row = 0; row < ROWS_COUNT; row++)
+	{
+		file << textMap[row] << "\n";
+	}
+	
+	file.close();
+	return true;
+}
+
+char LocalMap::getText(CellContent content) const
+{
+	switch (content)
+	{
+		case ccUnknown:
+			return 'U';
+		case ccSelf:
+			return 'M';
+		case ccEmpty:
+			return '+';
+		case ccAlly:
+			return 'A';
+		case ccNeutral:
+			return 'N';
+		case ccEnemy:
+			return 'E';
+		case ccPartialEmpty:
+			return 'P';
+	}
+
+	return 'X';
 }
 
 bool LocalMap::findFirstAround(CellContent needContent, int & row, int & col) const
@@ -408,47 +434,6 @@ LocalMap::Direction LocalMap::nextDirecton(LocalMap::Direction direction) const
 	return LocalMap::Direction(direction + 1);
 }
 
-const bool LocalMap::isDirectMovePossible(const Point2D & targetPoint) const
-{
-	if (!nearUnits.size())
-	{
-		return true;
-	}
-
-	Direction direction = calcDirection(selfPos, targetPoint);
-
-	std::vector<const model::CircularUnit *> collisionUnits;
-	if (isPossibleCollision(selfPos, collisionUnits))
-	{
-		bool collisions[_Direction_Count];
-		convertCollisions(selfPos, collisionUnits, collisions);
-
-		Direction prev = prevDirecton(direction);
-		Direction next = nextDirecton(direction);
-
-		if (collisions[direction] || collisions[prev] || collisions[next] || collisions[prevDirecton(prev)] || collisions[nextDirecton(next)])
-		{
-			return false;
-		}
-	}
-
-	if (isPossibleCollision(targetPoint, collisionUnits))
-	{
-		return false;
-	}
-	
-	double x = (selfPos.getX() + targetPoint.getX()) / 2.0;
-	double y = (selfPos.getY() + targetPoint.getY()) / 2.0;
-	Point2D midPoint(x, y);
-	if (isPossibleCollision(midPoint, collisionUnits))
-	{
-		return false;
-	}
-
-	return true;
-
-}
-
 bool LocalMap::isCanMoveDirect(LocalMap::Direction direction) const
 {
 	if (aroundCells[direction]->content != ccEmpty)
@@ -470,7 +455,14 @@ bool LocalMap::isCanMoveDirect(LocalMap::Direction direction) const
 		Direction prev = prevDirecton(direction);
 		Direction next = nextDirecton(direction);
 
-		if (collisions[direction] || collisions[prev] || collisions[next] || collisions[prevDirecton(prev)] || collisions[nextDirecton(next)])
+		if (isDiag(direction))
+		{
+			if (collisions[direction] || collisions[prev] || collisions[next])
+			{
+				return false;
+			}
+		}		
+		else if (collisions[direction])
 		{
 			return false;
 		}
@@ -492,11 +484,11 @@ bool LocalMap::isCanMoveDirect(LocalMap::Direction direction) const
 	return true;	
 }
 
-bool LocalMap::isPossibleCollision(const Point2D & point, std::vector<const model::CircularUnit *> & result) const
+bool LocalMap::isPossibleCollision(const Point2D & point, double radius, std::vector<const model::CircularUnit *> & result) const
 {
 	result.clear();
 
-	Object2D object(point, COLLISION_RISK + CELL_SIZE / 2.0);
+	Object2D object(point, radius);
 
 	for (int i = 0; i < nearUnits.size(); ++i)
 	{
@@ -589,3 +581,27 @@ bool LocalMap::getNearCell(int midRow, int midCol, LocalMap::Direction direction
 	return true;
 }
 
+
+bool LocalMap::isWayBlocked(const Point2D & targetPoint)
+{
+	Direction direction = calcDirection(selfPos, targetPoint);
+	
+	std::vector<const model::CircularUnit *> collisionUnits;
+	if (!isPossibleCollision(selfPos, BLOCKED_ALERT, collisionUnits))
+	{
+		return false;
+	}
+	
+	bool collisions[_Direction_Count];
+	convertCollisions(selfPos, collisionUnits, collisions);
+
+	Direction prev = prevDirecton(direction);
+	Direction next = nextDirecton(direction);
+
+	if (collisions[direction] || collisions[prev] || collisions[next])
+	{
+		return true;
+	}	
+
+	return false;
+}

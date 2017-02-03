@@ -48,7 +48,8 @@ namespace dav
 	{
 	protected:
 				
-		const double WAYPOINT_RADIUS = 100.0;
+		const double WAYPOINT_RADIUS = 60.0;
+		const double LOCAL_WAYPOINT_RADIUS = 12.5;
 
 		std::vector<Point2D> globalWaypoints;
 		std::vector<Point2D> localWaypoints;
@@ -67,6 +68,33 @@ namespace dav
 		bool isLocalWayEnd();
 
 		bool targetNextGlobalWaypoint();
+
+		bool isLastMove;
+		Point2D lastMovePos;
+
+		void resetLastMove()
+		{
+			isLastMove = false;
+			lastMovePos.setPosition(-1, -1);
+		}
+
+		void saveLastMove()
+		{
+			isLastMove = true;
+			lastMovePos = cg->getSelf().getCenter();
+		}
+
+		bool isBlockade()
+		{
+			if (!isLastMove)
+			{
+				return false;
+			}
+
+			return lastMovePos == cg->getSelf().getCenter();
+		}
+
+		double getOptimalSpeed(const Point2D & targetPoint);
 
 	public:
 		MoveTactics();

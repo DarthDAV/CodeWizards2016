@@ -51,6 +51,7 @@ bool MoveTactics::targetNextGlobalWaypoint()
 	}
 
 	curLocalIndex = 1;
+	resetLastMove();
 	return true;
 }
 
@@ -92,35 +93,38 @@ bool MoveTactics::move()
 		}	
 	}
 	
-	//Можем врезаться
-	if (!cg->isDirectMovePossible(localWaypoints[curLocalIndex]))
+	//Застряли
+	if (isBlockade())
 	{
 		if (!cg->calcWay(globalWaypoints[curGlobalIndex], localWaypoints))
 		{
 			status = tsFailure;
 			return false;
 		}
-		
 		curLocalIndex = 1;
+		resetLastMove();
+		return true;	
 	}
 
 	const Point2D & targetPoint = localWaypoints[curLocalIndex];
-
 	double angle = env->self->getAngleTo(targetPoint.getX(), targetPoint.getY());
 	if (abs(angle) > 0.1) {
 		env->move->setTurn(angle);
+		resetLastMove();
 		return true;
 	}
+	
+	double moveSpeed = getOptimalSpeed(targetPoint);	
+	env->move->setSpeed(moveSpeed);
+	saveLastMove();
 
-	env->move->setStrafeSpeed(0);
-	env->move->setSpeed(env->getMaxForwardSpeed());	
 	return true;	
 }
 
 bool MoveTactics::isGlobalWaypointReached()
 {
 	const Point2D & curGlobalPoint = globalWaypoints[curGlobalIndex];
-	return cg->getSelf().getCenter().getDistanceTo(curGlobalPoint) < WAYPOINT_RADIUS;//TODO
+	return cg->getSelf().getCenter().getDistanceTo(curGlobalPoint) < WAYPOINT_RADIUS;
 }
 
 bool MoveTactics::isGlobalWayEnd()
@@ -131,12 +135,17 @@ bool MoveTactics::isGlobalWayEnd()
 bool MoveTactics::isLocalWaypointReached()
 {
 	const Point2D & curLocalPoint = localWaypoints[curLocalIndex];
-	return cg->getSelf().getCenter().getDistanceTo(curLocalPoint) <= 10.0;
+	return cg->getSelf().getCenter().getDistanceTo(curLocalPoint) <= LOCAL_WAYPOINT_RADIUS;
 }
 
 bool MoveTactics::isLocalWayEnd()
 {
 	return curLocalIndex == localWaypoints.size() - 1;
+}
+
+double MoveTactics::getOptimalSpeed(const Point2D & targetPoint)
+{	
+	return cg->getOptimalMoveSpeed(targetPoint);
 }
 
 MoveTactics::~MoveTactics()
@@ -150,8 +159,9 @@ BattleTactics::BattleTactics() : Tactics()
 
 Tactics::TacticsStatus BattleTactics::work()
 {	
+	status = tsInProgress;
+	
 	env->move->setSpeed(0);
-	env->move->setStrafeSpeed(0);
 
 	if (cg->getNearEnemyDistance() > env->self->getCastRange())
 	{
@@ -173,18 +183,26 @@ Tactics::TacticsStatus BattleTactics::work()
 		return status;
 	}
 
+	if ((distance < 150.0 && cg->getNearAllyDistance() > 200.0) || env->self->getLife() < 60.0)
+	{
+		//TODO Отступление
+		env->move->setSpeed(-1.0*env->getMaxBackwardSpeed());
+	}
+
+	if (env->isSkillLeanded(model::SKILL_SHIELD) && env->self->getMana() > 60)
+	{
+		if (env->getActionRechargeTime(model::ACTION_SHIELD) == 0)
+		{
+			env->move->setAction(model::ACTION_SHIELD);
+			return status;
+		}
+	}
+
 	double angle = env->self->getAngleTo(*target);
-	if (abs(angle) > env->game->getStaffSector() / 2.0) 
+	if (abs(angle) > env->game->getStaffSector() / 1.6)
 	{
 		env->move->setTurn(angle);
 		return status;
-	}
-
-	if (distance < 100.0 || cg->getNearAllyDistance() > 200.0)
-	{
-		//Отступление
-		env->move->setSpeed(-1.0*env->getMaxBackwardSpeed());
-		env->move->setStrafeSpeed(env->getMaxStrafeSpeed()*(env->randomBool() ? - 1.0 : 1.0));
 	}
 
 	if (distance < (target->getRadius() + 35.0 + 70.0)  && env->getActionRechargeTime(model::ACTION_STAFF) == 0)
@@ -193,34 +211,27 @@ Tactics::TacticsStatus BattleTactics::work()
 		return status;
 	}
 
-    if (env->isSkillLeanded(model::SKILL_SHIELD) && env->self->getMana() > 60)
+	model::ActionType action = model::_ACTION_UNKNOWN_;
+	if(env->isSkillLeanded(model::SKILL_FROST_BOLT) && env->self->getMana() > 48 && env->getActionRechargeTime(model::ACTION_FROST_BOLT) == 0)
 	{
-		if (env->getActionRechargeTime(model::ACTION_SHIELD)== 0)
-		{ 
-			env->move->setAction(model::ACTION_SHIELD);
-			return status;
-		}
-	} 
-
-	if(env->isSkillLeanded(model::SKILL_FROST_BOLT) && env->self->getMana() > 48)
-	{
-		if (env->getActionRechargeTime(model::ACTION_FROST_BOLT) == 0)
-		{
-			env->move->setAction(model::ACTION_FROST_BOLT);
-			env->move->setCastAngle(angle);
-			env->move->setMinCastDistance(distance - target->getRadius() + env->game->getMagicMissileRadius());
-			return status;
-		}
+		action = model::ACTION_FROST_BOLT;
 	}
-	
-	if (env->getActionRechargeTime(model::ACTION_MAGIC_MISSILE) == 0)
+	else if (env->getActionRechargeTime(model::ACTION_MAGIC_MISSILE) == 0)
 	{
-		env->move->setAction(model::ACTION_MAGIC_MISSILE);
-		env->move->setCastAngle(angle);
-		env->move->setMinCastDistance(distance - target->getRadius() + env->game->getMagicMissileRadius());
+		action = model::ACTION_MAGIC_MISSILE;
+	}
+
+	if (action == model::_ACTION_UNKNOWN_)
+	{
 		return status;
 	}
-	
+		
+	env->move->setCastAngle(angle);
+	env->move->setMinCastDistance(distance - target->getRadius() + env->game->getMagicMissileRadius());
+	env->move->setAction(action);
+
+	env->move->setTurn(angle);
+
 	return status;
 }
 

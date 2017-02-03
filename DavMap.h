@@ -9,77 +9,6 @@
 
 namespace dav
 {
-
-	class Map
-	{
-	public:
-		struct Cell
-		{
-		public:
-			
-			bool isUnexplored;
-			
-			std::vector<const model::Building *> buildings;
-			std::vector<const model::Wizard *> wizards;
-			std::vector<const model::Minion *> minions;
-			std::vector<const model::Tree *> trees;
-			
-			Cell()
-			{				
-				isUnexplored = true;
-			}
-
-			void clear()
-			{				
-				buildings.clear();
-				wizards.clear();
-				minions.clear();
-				trees.clear();
-			}
-
-		};
-
-	private:
-		const double CELL_SIZE = 400.0;
-		int rowsCount;
-		int colsCount;
-		int worldWidth;
-		int worldHeight;
-
-		Cell ** cells;
-	public:
-		Map(int _worldWidth, int _worldHeight);
-
-		Cell * cell(int row, int col);
-		
-		Cell * findCell(int worldX, int worldY);
-		Cell * findCell(const Point2D & point)
-		{
-			return findCell(point.getX(), point.getY());
-		}
-		Cell * findCell(const Object2D & object)
-		{
-			return findCell(object.getCenter().getX(), object.getCenter().getY());
-		}
-
-		void clear();
-
-		void add(const model::Building & building);
-		void add(const model::Wizard & wizard);
-		void add(const model::Minion & minion);
-		void add(const model::Tree & tree);
-
-		bool isValidPosition(const Point2D & point)
-		{
-			double x = point.getX();
-			double y = point.getY();
-
-			return !(x < 0 || x > worldWidth || y < 0 || y > worldHeight);
-		}
-		
-		~Map();
-	};
-
 	class LocalMap
 	{
 	public:		
@@ -90,7 +19,8 @@ namespace dav
 			ccEmpty,
 			ccAlly,
 			ccNeutral,
-			ccEnemy
+			ccEnemy,
+			ccPartialEmpty
 		};
 
 		struct Cell
@@ -121,7 +51,8 @@ namespace dav
 		const int SELF_COL = 10;
 
 		const double NEAR_DISTANCE = 200.0;
-		const double COLLISION_RISK = 5.0;
+		const double COLLISION_RISK = 3.0;
+		const double BLOCKED_ALERT = 70;
 
 	private:		
 		
@@ -142,6 +73,8 @@ namespace dav
 		std::vector<const model::CircularUnit *> nearUnits;
 		
 		void clear();
+		
+		void setPartialAround(int row, int col);
 
 		void updateCollisions();
 
@@ -155,9 +88,21 @@ namespace dav
 
 		bool getNearCell(int midRow, int midCol, Direction direction, int &resultRow, int &resultCol) const;
 
-		bool isPossibleCollision(const Point2D & point, std::vector<const model::CircularUnit *> & result) const;
-		
+		bool isPossibleCollision(const Point2D & point, double radius, std::vector<const model::CircularUnit *> & result) const;
+
+		bool isPossibleCollision(const Point2D & point, std::vector<const model::CircularUnit *> & result) const
+		{
+			return isPossibleCollision(point, COLLISION_RISK + CELL_SIZE / 2.0, result);
+		}
+				
 		void convertCollisions(const Point2D & position, const std::vector<const model::CircularUnit *> & positionCollisionUnits, bool * collisions) const;
+
+		char getText(CellContent content) const;
+
+		bool LocalMap::isDiag(LocalMap::Direction directin) const
+		{
+			return 	directin == drDiagTR || directin == drDiagBR || directin == drDiagBL || directin == drDiagTL;
+		}
 
 	public:
 		
@@ -231,19 +176,12 @@ namespace dav
 		
 		bool isValid(int row, int col) const
 		{
-			if (row < 0 && row > ROWS_COUNT)
-			{
-				return false;
-			}
-			else if (col < 0 && col > COLS_COUNT)
-			{
-				return false;
-			}
-
-			return true;
+			return row >= 0 && row < ROWS_COUNT && col >= 0 && col < COLS_COUNT;			
 		}
 
-		const bool isDirectMovePossible(const Point2D & targetPoint) const;
+		bool saveToFile();
+
+		bool isWayBlocked(const Point2D & targetPoint);
 
 	};
 
