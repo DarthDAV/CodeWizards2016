@@ -137,7 +137,7 @@ namespace dav
 		
 		void calcWizardsByLane();
 		void calcWizardsReserve();		
-		model::LaneType LaneAdvisor::getLaneToMove(const model::Wizard * wizard);
+		model::LaneType getLaneToMove(const model::Wizard * wizard);
 
 	public:
 

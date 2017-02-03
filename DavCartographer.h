@@ -60,7 +60,7 @@ namespace dav
 		void calcLaneFragment(const Point2D & beginPoint, const Point2D & endPoint, model::LaneType lane, std::vector<Point2D> & result) const;
 
 		bool checkNearBase(const model::LivingUnit & unit);
-		double Cartographer::calcWayLen(const Point2D & beginPoint, const Point2D & endPoint, int laneBegin, int laneEnd, model::LaneType lane) const;
+		double calcWayLen(const Point2D & beginPoint, const Point2D & endPoint, int laneBegin, int laneEnd, model::LaneType lane) const;
 	
 	public:
 		
@@ -71,12 +71,12 @@ namespace dav
 			return markers[pointMarker];
 		}
 
-		const Point2D &  get—ollectionPoint(PointMarker pointMarker)
+		const Point2D &  getCollectionPoint(PointMarker pointMarker)
 		{
 			return nearMarkers[pointMarker];
 		}
 
-		const Point2D &  getNearest—ollectionPoint(const Point2D & forPoint) const;
+		const Point2D &  getNearestCollectionPoint(const Point2D & forPoint) const;
 
 		void update();
 

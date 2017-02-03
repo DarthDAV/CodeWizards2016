@@ -1,5 +1,6 @@
 #include "DavAdvisor.h"
 
+#include <cstring>
 #include "DavGeometry.h"
 
 using namespace dav;
@@ -83,10 +84,10 @@ void Advisor::prepareTopLanePlan()
 	
 	plan.clear();
 
-	plan.push_back(Stage(cg->getÑollectionPoint(Cartographer::TAT1), Stage::sgReachPoint));
-	plan.push_back(Stage(cg->getÑollectionPoint(Cartographer::TAT2), Stage::sgReachPoint));
-	plan.push_back(Stage(cg->getÑollectionPoint(Cartographer::TET1), Stage::sgReachPoint));
-	plan.push_back(Stage(cg->getÑollectionPoint(Cartographer::TET2), Stage::sgReachPoint));
+	plan.push_back(Stage(cg->getCollectionPoint(Cartographer::TAT1), Stage::sgReachPoint));
+	plan.push_back(Stage(cg->getCollectionPoint(Cartographer::TAT2), Stage::sgReachPoint));
+	plan.push_back(Stage(cg->getCollectionPoint(Cartographer::TET1), Stage::sgReachPoint));
+	plan.push_back(Stage(cg->getCollectionPoint(Cartographer::TET2), Stage::sgReachPoint));
 	
 	Point2D nearEB(cg->getPoint(Cartographer::EB).getShift(-200.0, -250.0));
 	plan.push_back(Stage(nearEB, Stage::sgReachPoint));
@@ -100,10 +101,10 @@ void Advisor::prepareMiddleLanePlan()
 	
 	plan.clear();
 	
-	plan.push_back(Stage(cg->getÑollectionPoint(Cartographer::MAT1), Stage::sgReachPoint));
-	plan.push_back(Stage(cg->getÑollectionPoint(Cartographer::MAT2), Stage::sgReachPoint));
-	plan.push_back(Stage(cg->getÑollectionPoint(Cartographer::MET1), Stage::sgReachPoint));
-	plan.push_back(Stage(cg->getÑollectionPoint(Cartographer::MET2), Stage::sgReachPoint));
+	plan.push_back(Stage(cg->getCollectionPoint(Cartographer::MAT1), Stage::sgReachPoint));
+	plan.push_back(Stage(cg->getCollectionPoint(Cartographer::MAT2), Stage::sgReachPoint));
+	plan.push_back(Stage(cg->getCollectionPoint(Cartographer::MET1), Stage::sgReachPoint));
+	plan.push_back(Stage(cg->getCollectionPoint(Cartographer::MET2), Stage::sgReachPoint));
 	
 	Point2D nearEB(cg->getPoint(Cartographer::EB).getShift(-200.0, -200.0));
 	plan.push_back(Stage(nearEB, Stage::sgReachPoint));
@@ -117,10 +118,10 @@ void Advisor::prepareBottomLanePlan()
 	
 	plan.clear();
 
-	plan.push_back(Stage(cg->getÑollectionPoint(Cartographer::BAT1), Stage::sgReachPoint));
-	plan.push_back(Stage(cg->getÑollectionPoint(Cartographer::BAT2), Stage::sgReachPoint));
-	plan.push_back(Stage(cg->getÑollectionPoint(Cartographer::BET1), Stage::sgReachPoint));
-	plan.push_back(Stage(cg->getÑollectionPoint(Cartographer::BET2), Stage::sgReachPoint));
+	plan.push_back(Stage(cg->getCollectionPoint(Cartographer::BAT1), Stage::sgReachPoint));
+	plan.push_back(Stage(cg->getCollectionPoint(Cartographer::BAT2), Stage::sgReachPoint));
+	plan.push_back(Stage(cg->getCollectionPoint(Cartographer::BET1), Stage::sgReachPoint));
+	plan.push_back(Stage(cg->getCollectionPoint(Cartographer::BET2), Stage::sgReachPoint));
 
 	Point2D nearEB(cg->getPoint(Cartographer::EB).getShift(+300.0, +200.0));
 	plan.push_back(Stage(nearEB, Stage::sgReachPoint));
@@ -337,7 +338,7 @@ bool Advisor::isBaseInDanger()
 
 void Advisor::retreatToBase()
 {
-	stageIt = plan.insert(stageIt, Stage(cg->getÑollectionPoint(Cartographer::AB), Stage::sgRetreatToPoint));
+	stageIt = plan.insert(stageIt, Stage(cg->getCollectionPoint(Cartographer::AB), Stage::sgRetreatToPoint));
 	useStageTactics();
 }
 
@@ -355,7 +356,7 @@ void Advisor::retreatToNearAlliedBuilding()
 		return;
 	}
 
-	const Point2D & colPoint = cg->getNearestÑollectionPoint(Point2D(*building));
+	const Point2D & colPoint = cg->getNearestCollectionPoint(Point2D(*building));
 	stageIt = plan.insert(stageIt, Stage(colPoint, Stage::sgRetreatToPoint));
 	useStageTactics();	
 }

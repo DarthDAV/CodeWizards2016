@@ -1,5 +1,6 @@
 #include "DavCartographer.h"
 
+#include <limits>
 #include "model/Game.h"
 #include "model/Move.h"
 #include "model/World.h"
@@ -61,7 +62,7 @@ void Cartographer::prepareMarkers()
 
 }
 
-const Point2D &  Cartographer::getNearest—ollectionPoint(const Point2D & forPoint) const
+const Point2D &  Cartographer::getNearestCollectionPoint(const Point2D & forPoint) const
 {
 	int index = AB;
 	double minDistance = std::numeric_limits<double>::max();

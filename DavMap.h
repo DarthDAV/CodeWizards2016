@@ -99,7 +99,7 @@ namespace dav
 
 		char getText(CellContent content) const;
 
-		bool LocalMap::isDiag(LocalMap::Direction directin) const
+		bool isDiag(LocalMap::Direction directin) const
 		{
 			return 	directin == drDiagTR || directin == drDiagBR || directin == drDiagBL || directin == drDiagTL;
 		}
