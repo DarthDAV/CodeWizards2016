@@ -199,7 +199,11 @@ void Advisor::work()
 		useStageTactics();
 	}
 
-	if (ifMetEnemy())
+	if (isLowHealth())
+	{
+		retreatToNearAlliedBuilding();
+	}
+	else if (ifMetEnemy())
 	{
 		joinBattle();
 	}
@@ -212,11 +216,7 @@ void Advisor::work()
 		nextStage();
 		useStageTactics();
 	}
-	else if (isLowHealth())
-	{
-		retreatToNearAlliedBuilding();
-	}
-
+	
 	curTactics->work();
 
 	if (curTactics->getStatus() == Tactics::tsCompleted)
