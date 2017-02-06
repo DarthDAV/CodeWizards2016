@@ -221,14 +221,6 @@ void Cartographer::update()
 	}
 
 	locMap.fixing();
-
-#ifdef DEBUG_MAP
-	if (env->self->isMaster())
-	{
-		locMap.saveToFile();//TODO
-	}
-#endif // DEBUG_MAP
-
 }
 
 bool Cartographer::checkNearBase(const model::LivingUnit & unit)
@@ -383,7 +375,17 @@ double Cartographer::calcWayLen(const Point2D & beginPoint, const Point2D & endP
 
 bool Cartographer::calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & result) const
 {
+#ifdef DEBUG_MAP
+	bool isSucces = locMap.calcWay(desiredEndPoint, result);
+	if (env->self->isMaster())
+	{
+		locMap.saveToFile();
+	}
+	return isSucces;
+#else
 	return locMap.calcWay(desiredEndPoint, result);
+#endif // DEBUG_MAP
+
 }
 
 /*

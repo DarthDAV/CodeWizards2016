@@ -3,11 +3,14 @@
 #include <cstring>
 #include <iostream>//TODO
 #include <fstream>//TODO
+#include <algorithm>
 
 using namespace dav;
 
-LocalMap::LocalMap()
+LocalMap::LocalMap() 
 {
+	pathfinding = new Pathfinding(this);
+
 	aroundShift[drTop][0] = -1;
 	aroundShift[drTop][1] = 0;
 	aroundCoord[drTop][0] = SELF_ROW - 1;
@@ -76,6 +79,11 @@ void LocalMap::clear()
 	allies.clear();
 	nearUnits.clear();
 
+}
+
+LocalMap::~LocalMap()
+{
+	delete pathfinding;
 }
 
 void LocalMap::init(const model::Wizard & self)
@@ -247,7 +255,8 @@ void LocalMap::fixing()
 
 }
 
-bool LocalMap::saveToFile()
+#ifdef DEBUG_MAP
+bool LocalMap::saveToFile() const
 {
 	char textMap[21][22];
 	for (size_t row = 0; row < ROWS_COUNT; row++)
@@ -263,6 +272,27 @@ bool LocalMap::saveToFile()
 		textMap[row][21] = 0;
 	}
 
+	std::vector<LocalMap::Coordinates> path;
+	pathfinding->getPath(path);
+
+	for (int i = 0; i < path.size(); ++i)
+	{
+		const Coordinates & coord = path[i];
+		if (SELF_ROW == coord.row && SELF_COL == coord.col)
+		{
+			continue;
+		}
+
+		if (i == path.size() - 1)
+		{
+			textMap[coord.row][coord.col] = 'T';
+		}
+		else
+		{
+			textMap[coord.row][coord.col] = 'X';
+		}
+	}
+		
 	std::ofstream file("map.txt", std::ios_base::out | std::ios_base::app);
 	if (!file.is_open())
 	{
@@ -302,8 +332,9 @@ char LocalMap::getText(CellContent content) const
 			return 'P';
 	}
 
-	return 'X';
+	return '#';
 }
+#endif
 
 bool LocalMap::findFirstAround(CellContent needContent, int & row, int & col) const
 {
@@ -327,13 +358,42 @@ bool LocalMap::calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & r
 {
 	result.clear();
 
+	const Point2D & beginPoint = selfPos;
+
 	Point2D endPoint;//Окончание пути с учётом свободного места
 	if (!getNearestPlace(desiredEndPoint, endPoint))
 	{
-		return false;
+		result.push_back(beginPoint);
+		result.push_back(desiredEndPoint);
+		return true;//TODO Резевный план
 	}
 
-	Direction desiredDirection = calcDirection(selfPos, endPoint);
+	Coordinates beginCoord;
+	Coordinates endCoord;
+	getCellPos(beginPoint, beginCoord);
+	getCellPos(endPoint, endCoord);
+
+	if (!pathfinding->findPath(beginCoord, endCoord))
+	{
+		result.push_back(beginPoint);
+		result.push_back(endPoint);
+		return true;//TODO Резевный план
+	}
+
+	std::vector<LocalMap::Coordinates> path;
+	pathfinding->getPath(path);
+
+	Point2D point;
+	for (int i = 0; i < path.size(); ++i)
+	{
+		const Coordinates & coord = path[i];
+		cellToPos(coord.row, coord.col, point);
+		result.push_back(point);
+	}
+
+	return true;
+
+	/*Direction desiredDirection = calcDirection(selfPos, endPoint);
 	Direction direction = desiredDirection;
 
 	Direction possibleDirections[_Direction_Count];
@@ -373,7 +433,7 @@ bool LocalMap::calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & r
 	result.push_back(point);
 	result.push_back(endPoint);
 
-	return true;
+	return true;*/
 }
 
 bool LocalMap::getNearestPlace(const Point2D & desiredEndPoint, Point2D & result) const
@@ -411,7 +471,7 @@ bool LocalMap::getNearestPlace(const Point2D & desiredEndPoint, Point2D & result
 	return false;
 }
 
-LocalMap::Direction LocalMap::prevDirecton(LocalMap::Direction direction) const
+LocalMap::Direction LocalMap::prevDirecton(LocalMap::Direction direction) 
 {
 	if (direction == drTop)
 	{
@@ -421,7 +481,7 @@ LocalMap::Direction LocalMap::prevDirecton(LocalMap::Direction direction) const
 	return LocalMap::Direction(direction - 1);
 }
 
-LocalMap::Direction LocalMap::nextDirecton(LocalMap::Direction direction) const
+LocalMap::Direction LocalMap::nextDirecton(LocalMap::Direction direction) 
 {
 	if (direction == drDiagTL)
 	{
@@ -626,3 +686,302 @@ bool LocalMap::isWayBlocked(const Point2D & targetPoint)
 
 	return false;
 }
+
+Pathfinding::Pathfinding(const LocalMap * _map) : map(_map)
+{
+	
+	width = map->getWidth();
+	height = map->getHeight();
+
+	vertices = new Vertex*[height];
+	for (int i = 0; i < height; ++i)
+	{
+		vertices[i] = new Vertex[width];
+	}
+}
+
+Pathfinding::~Pathfinding()
+{
+	for (int i = 0; i < height; ++i)
+	{
+		delete[] vertices[i];
+	}
+
+	delete[] vertices;
+}
+
+bool Pathfinding::findPath(const LocalMap::Coordinates & _begin, const LocalMap::Coordinates & _end)
+{
+	path.clear();
+	openList.clear();
+	
+	begin = _begin;
+	end = _end;
+
+	beginVertex = &(vertices[begin.row][begin.col]);
+	endVertex = &(vertices[end.row][end.col]);
+
+	prepare();
+
+	if (!startFind())
+	{
+		return false;
+	}
+
+	 makePath();
+	 return true;
+}
+
+void Pathfinding::prepare()
+{
+	for (int row = 0; row < height; ++row)
+	{
+		for (int col = 0; col < height; ++col)
+		{
+			Vertex & vertex = vertices[row][col];
+			vertex.clear();
+			vertex.isEmpty = map->cell(row, col).content == LocalMap::ccEmpty;
+			vertex.selfRow = row;
+			vertex.selfCol = col;
+		}
+	}
+}
+
+bool Pathfinding::startFind()
+{
+	int fromRow = begin.row;
+	int fromCol = begin.col;
+
+	vertices[fromRow][fromCol].isClosed = true;
+
+	int row;
+	int col;
+
+	for (int i = 0; i < LocalMap::_Direction_Count; ++i)
+	{
+		LocalMap::Direction direction = LocalMap::Direction(i);
+
+		if (!map->getNearCell(fromRow, fromCol, direction, row, col)) //TODO
+		{
+			continue;
+		}
+
+		Vertex & vertex = vertices[row][col];
+		if ((!vertex.isEmpty) || vertex.isClosed)
+		{
+			continue;
+		}
+
+		vertex.G = LocalMap::isDiag(direction) ? 14 : 10;
+		vertex.H = calcH(row, col);
+		vertex.F = vertex.G + vertex.H;
+		vertex.target = beginVertex;
+
+		addToOpenList(vertex);
+		if ((&vertex) == endVertex)
+		{
+			return true;//Дошли до конца пути
+		}
+	}
+
+	if (!openList.size())
+	{
+		return false;//Нет пути
+	}
+
+	const Vertex * bestVertex = openList.front();
+	return find(bestVertex->selfRow, bestVertex->selfCol);
+}
+
+void Pathfinding::addToOpenList(const Vertex & vertex)
+{
+	//TODO Отсортированный список
+	openList.push_back(&vertex);
+	sortOpenList();
+}
+
+void Pathfinding::removeFromOpenList(Vertex & vertex)
+{
+	vertex.isClosed = true;
+	openList.remove(&vertex);
+}
+
+bool compareVertex(const Pathfinding::Vertex *p1, const Pathfinding::Vertex *p2)
+{
+	return p1->F < p2->F;
+}
+
+void Pathfinding::sortOpenList()
+{
+	openList.sort(compareVertex);
+}
+
+bool Pathfinding::find(int fromRow, int fromCol)
+{
+	Vertex & fromVertex = vertices[fromRow][fromCol];
+	removeFromOpenList(fromVertex);
+
+	int row;
+	int col;
+
+	for (int i = 0; i < LocalMap::_Direction_Count; ++i)
+	{		
+		LocalMap::Direction direction = LocalMap::Direction(i);
+		bool isDiag = LocalMap::isDiag(direction);
+
+		if (!map->getNearCell(fromRow, fromCol, direction, row, col)) //TODO
+		{
+			continue;
+		}
+
+		Vertex & vertex = vertices[row][col];
+		if ( (!vertex.isEmpty) || vertex.isClosed )
+		{
+			continue;
+		}
+
+		if (isDiag)
+		{
+			//Угол препятсвия нельзя пройти по диагонали
+			if (isBarrierCorner(fromRow, fromCol, direction))
+			{
+				continue;
+			}
+		}
+		
+
+		//Если 
+		if (vertex.target != nullptr)
+		{
+			LocalMap::Direction nearDireciton = calcDirection(fromRow, fromCol, row, col);
+			int pathG = fromVertex.G + (isDiag ? 14 : 10);
+			
+			if (pathG < vertex.G)
+			{
+				vertex.target = &fromVertex;
+				vertex.G = pathG;
+				vertex.F = vertex.G + vertex.H;
+				sortOpenList();
+			}
+		}
+		else
+		{
+			vertex.target = &fromVertex;
+			vertex.G = fromVertex.G + (isDiag ? 14 : 10);
+			vertex.H = calcH(row, col);
+			vertex.F = vertex.G + vertex.H;
+
+			addToOpenList(vertex);
+			if ((&vertex) == endVertex)
+			{
+				return true;//Дошли до конца пути
+			}
+		}
+
+	}
+
+	if (!openList.size())
+	{
+		return false;//Нет пути
+	}
+
+	const Vertex * bestVertex = openList.front();
+	return find(bestVertex->selfRow, bestVertex->selfCol);
+}
+
+int Pathfinding::calcH(int row, int col) const
+{
+	int rCount = std::abs(end.row - row);
+	int cCount = std::abs(end.col - col);
+	return (rCount + cCount)*10;
+}
+
+LocalMap::Direction Pathfinding::calcDirection(int fromRow, int fromCol, int toRow, int toCol)
+{
+	if (fromCol == toCol)
+	{
+		if (toRow < fromRow)
+		{
+			return LocalMap::drTop;
+		}
+		else
+		{
+			return LocalMap::drBottom;
+		}
+	}
+	else if (fromRow == toRow)
+	{
+		if (toCol > fromRow)
+		{
+			return LocalMap::drRight;
+		}
+		else
+		{
+			return LocalMap::drLeft;
+		}
+	}
+	else if (toCol > fromCol && toRow < fromRow)
+	{
+		return LocalMap::drDiagTR;
+	}
+	else if (toCol > fromCol && toRow > fromRow)
+	{
+		return LocalMap::drDiagBR;
+	}
+	else if (toCol < fromCol && toRow < fromRow)
+	{
+		return LocalMap::drDiagTL;
+	}
+	else
+	{
+		return LocalMap::drDiagBL;
+	}
+
+}
+
+bool Pathfinding::isBarrierCorner(int fromRow, int fromCol, LocalMap::Direction direction) const
+{
+	LocalMap::Direction prev = LocalMap::prevDirecton(direction);
+	LocalMap::Direction next = LocalMap::nextDirecton(direction);
+	
+	int row, col;
+	
+	if (map->getNearCell(fromRow, fromCol, prev, row, col))
+	{
+		if (!vertices[row][col].isEmpty)
+		{
+			return true;
+		}
+	}
+
+	if (map->getNearCell(fromRow, fromCol, next, row, col))
+	{
+		if (!vertices[row][col].isEmpty)
+		{
+			return true;
+		}
+	}
+	
+	return false;
+}
+
+void Pathfinding::makePath()
+{
+	const Vertex * vertex = endVertex->target;
+
+	path.push_back(end);
+	while (vertex != beginVertex)
+	{
+		path.push_back(LocalMap::Coordinates(vertex->selfRow, vertex->selfCol));
+		vertex = vertex->target;
+	}
+	path.push_back(begin);
+
+	std::reverse(path.begin(), path.end());//TODO
+}
+
+void Pathfinding::getPath(std::vector<LocalMap::Coordinates> & result) const
+{	
+	result = path;	
+}
+
