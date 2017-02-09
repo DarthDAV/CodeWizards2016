@@ -46,19 +46,19 @@ void Cartographer::prepareMarkers()
 
 	//Свободное место рядом
 	nearMarkers[AB] = Point2D(600, 3400);
-	nearMarkers[EB] = markers[EB].getShift(-250.0, +250.0);
+	nearMarkers[EB] = Point2D(3400, 600);
 	nearMarkers[TAT1] = Point2D(200, 2700);
 	nearMarkers[TAT2] = Point2D(200, 1700);
-	nearMarkers[TET1] = markers[TET1].getShift(-150.0, +150.0);
-	nearMarkers[TET2] = markers[TET2].getShift(-150, -250.0);
+	nearMarkers[TET1] = Point2D(1400, 200);
+	nearMarkers[TET2] = Point2D(2400, 200);
 	nearMarkers[MAT1] = Point2D(1000, 3000);
 	nearMarkers[MAT2] = Point2D(1800, 2200);
-	nearMarkers[MET1] = markers[MET1].getShift(0, +250.0);
-	nearMarkers[MET2] = markers[MET2].getShift(-100.0, 0);
+	nearMarkers[MET1] = Point2D(2200, 2000);
+	nearMarkers[MET2] = Point2D(2600, 1400);
 	nearMarkers[BAT1] = Point2D(1400, 3800);
 	nearMarkers[BAT2] = Point2D(2400, 3800);
-	nearMarkers[BET1] = markers[BET1].getShift(250.0, 100.0);
-	nearMarkers[BET2] = markers[BET2].getShift(-100.0, 250.0);
+	nearMarkers[BET1] = Point2D(3800, 2600);
+	nearMarkers[BET2] = Point2D(3800, 1600);
 
 }
 
@@ -85,46 +85,80 @@ const Point2D &  Cartographer::getNearestCollectionPoint(const Point2D & forPoin
 
 void Cartographer::prepareDefaultWays()
 {
+	int wizardId = (int)env->self->getId();
+	double shift = 0;
+
+	switch (wizardId) {
+	case 1:	
+	case 6:
+		shift = -1.0;
+		break;
+	case 2:
+	case 7:
+		shift = 1.0;
+		break;
+	case 3:
+	case 8:
+		shift = (wizardId % 2) ? -1.0: 1.0;
+		break;
+	case 4:
+	case 9:
+		shift = -1.0;
+		break;
+	case 5:
+	case 10:
+		shift = 1.0;
+		break;
+	}
+
+	shift *= 100.0;	
+	
 	std::vector<Point2D> & topLane = laneWaypoints[model::LANE_TOP];
 	std::vector<Point2D> & middleLane = laneWaypoints[model::LANE_MIDDLE];
 	std::vector<Point2D> & bottomLane = laneWaypoints[model::LANE_BOTTOM];
 
-	topLane.push_back(Point2D(200, 3400));
-	topLane.push_back(Point2D(200, 3200));
-	topLane.push_back(Point2D(200, 3000));
-	topLane.push_back(Point2D(200, 2850));
-	topLane.push_back(Point2D(200, 2700));
-	topLane.push_back(Point2D(200, 2650));
-	topLane.push_back(Point2D(200, 2400));
-	topLane.push_back(Point2D(200, 2200));
-	topLane.push_back(Point2D(200, 2000));
-	topLane.push_back(Point2D(200, 1850));
-	topLane.push_back(Point2D(200, 1700));
-	topLane.push_back(Point2D(200, 1550));
-	topLane.push_back(Point2D(200, 1300));
-	topLane.push_back(Point2D(200, 1150));
-	topLane.push_back(Point2D(200, 1000));
-	topLane.push_back(Point2D(300, 700));
-	topLane.push_back(Point2D(700, 200));
-	topLane.push_back(Point2D(1000, 250));
-	topLane.push_back(Point2D(1200, 250));
-	topLane.push_back(Point2D(1400, 250));
-	topLane.push_back(Point2D(1600, 250));
-	topLane.push_back(Point2D(1800, 250));
-	topLane.push_back(Point2D(2000, 250));
-	topLane.push_back(Point2D(2200, 250));
-	topLane.push_back(Point2D(2400, 150));
-	topLane.push_back(Point2D(2550, 150));
-	topLane.push_back(Point2D(2700, 150));
-	topLane.push_back(Point2D(2850, 150));
-	topLane.push_back(Point2D(3000, 150));
-	topLane.push_back(Point2D(3200, 150));
-	topLane.push_back(Point2D(3400, 150));
+	topLane.push_back(Point2D(200 + shift, 3500));
+	topLane.push_back(Point2D(200 + shift, 3350));
+	topLane.push_back(Point2D(200 + shift, 3200));
+	topLane.push_back(Point2D(200 + shift, 3000));
+	topLane.push_back(Point2D(200 + shift, 2850));
+	topLane.push_back(Point2D(200 + shift, 2700));
+	topLane.push_back(Point2D(200 + shift, 2650));
+	topLane.push_back(Point2D(200 + shift, 2400));
+	topLane.push_back(Point2D(200 + shift, 2200));
+	topLane.push_back(Point2D(200 + shift, 2000));
+	topLane.push_back(Point2D(200 + shift, 1850));
+	topLane.push_back(Point2D(200 + shift, 1700));
+	topLane.push_back(Point2D(200 + shift, 1550));
+	topLane.push_back(Point2D(200 + shift, 1300));
+	topLane.push_back(Point2D(200 + shift, 1150));
+	topLane.push_back(Point2D(200 + shift, 1000));
+	topLane.push_back(Point2D(300 + shift, 700));
+	topLane.push_back(Point2D(700 + shift, 200));
+	topLane.push_back(Point2D(1000, 200 + shift));
+	topLane.push_back(Point2D(1200, 200 + shift));
+	topLane.push_back(Point2D(1400, 200 + shift));
+	topLane.push_back(Point2D(1600, 200 + shift));
+	topLane.push_back(Point2D(1800, 200 + shift));
+	topLane.push_back(Point2D(2000, 200 + shift));
+	topLane.push_back(Point2D(2200, 200 + shift));
+	topLane.push_back(Point2D(2400, 200 + shift));
+	topLane.push_back(Point2D(2550, 200 + shift));
+	topLane.push_back(Point2D(2700, 200 + shift));
+	topLane.push_back(Point2D(2850, 200 + shift));
+	topLane.push_back(Point2D(3000, 200 + shift));
+	topLane.push_back(Point2D(3200, 200 + shift));
+	topLane.push_back(Point2D(3400, 200 + shift));
 
-	middleLane.push_back(Point2D(300, 3400));
-	middleLane.push_back(Point2D(300, 3200));
-	middleLane.push_back(Point2D(500, 3200));
-	middleLane.push_back(Point2D(800, 3200));
+	middleLane.push_back(Point2D(200, 3770));
+	middleLane.push_back(Point2D(300, 3770));
+	middleLane.push_back(Point2D(400, 3770));
+	middleLane.push_back(Point2D(500, 3770));
+	middleLane.push_back(Point2D(700, 3770));
+	middleLane.push_back(Point2D(700 , 3600));
+	middleLane.push_back(Point2D(700, 3400));
+	middleLane.push_back(Point2D(700, 3100));
+	middleLane.push_back(Point2D(850, 3100));
 	middleLane.push_back(Point2D(1000, 3000));
 	middleLane.push_back(Point2D(1200, 2800));
 	middleLane.push_back(Point2D(1400, 2600));
@@ -139,40 +173,40 @@ void Cartographer::prepareDefaultWays()
 	middleLane.push_back(Point2D(3200, 800));
 	middleLane.push_back(Point2D(3400, 600));
 
-	bottomLane.push_back(Point2D(200, 3800));
-	bottomLane.push_back(Point2D(400, 3800));
-	bottomLane.push_back(Point2D(600, 3800));
-	bottomLane.push_back(Point2D(800, 3800));
-	bottomLane.push_back(Point2D(1000, 3800));
-	bottomLane.push_back(Point2D(1200, 3800));
-	bottomLane.push_back(Point2D(1400, 3800));
-	bottomLane.push_back(Point2D(1600, 3800));
-	bottomLane.push_back(Point2D(1800, 3800));
-	bottomLane.push_back(Point2D(2000, 3800));
-	bottomLane.push_back(Point2D(2200, 3800));
-	bottomLane.push_back(Point2D(2400, 3800));
-	bottomLane.push_back(Point2D(2600, 3800));
-	bottomLane.push_back(Point2D(2800, 3800));
-	bottomLane.push_back(Point2D(3000, 3800));
-	bottomLane.push_back(Point2D(3200, 3800));
-	bottomLane.push_back(Point2D(3400, 3800));
-	bottomLane.push_back(Point2D(3600, 3800));
-	bottomLane.push_back(Point2D(3800, 3800));
-	bottomLane.push_back(Point2D(3800, 3600));
-	bottomLane.push_back(Point2D(3800, 3200));
-	bottomLane.push_back(Point2D(3800, 3000));
-	bottomLane.push_back(Point2D(3800, 2800));
-	bottomLane.push_back(Point2D(3800, 2600));
-	bottomLane.push_back(Point2D(3800, 2400));
-	bottomLane.push_back(Point2D(3800, 2200));
-	bottomLane.push_back(Point2D(3800, 2000));
-	bottomLane.push_back(Point2D(3800, 1800));
-	bottomLane.push_back(Point2D(3800, 1600));
-	bottomLane.push_back(Point2D(3800, 1400));
-	bottomLane.push_back(Point2D(3850, 1200));
-	bottomLane.push_back(Point2D(3850, 1000));
-	bottomLane.push_back(Point2D(3850, 800));
-	bottomLane.push_back(Point2D(3850, 650));
+	bottomLane.push_back(Point2D(400, 3800 + shift));
+	bottomLane.push_back(Point2D(500, 3800 + shift));
+	bottomLane.push_back(Point2D(600, 3800 + shift));
+	bottomLane.push_back(Point2D(800, 3800 + shift));
+	bottomLane.push_back(Point2D(1000, 3800 + shift));
+	bottomLane.push_back(Point2D(1200, 3800 + shift));
+	bottomLane.push_back(Point2D(1400, 3800 + shift));
+	bottomLane.push_back(Point2D(1600, 3800 + shift));
+	bottomLane.push_back(Point2D(1800, 3800 + shift));
+	bottomLane.push_back(Point2D(2000, 3800 + shift));
+	bottomLane.push_back(Point2D(2200, 3800 + shift));
+	bottomLane.push_back(Point2D(2400, 3800 + shift));
+	bottomLane.push_back(Point2D(2600, 3800 + shift));
+	bottomLane.push_back(Point2D(2800, 3800 + shift));
+	bottomLane.push_back(Point2D(3000, 3800 + shift));
+	bottomLane.push_back(Point2D(3200, 3800 + shift));
+	bottomLane.push_back(Point2D(3400, 3800 + shift));
+	bottomLane.push_back(Point2D(3600, 3800 + shift));
+	bottomLane.push_back(Point2D(3800, 3800 + shift));
+	bottomLane.push_back(Point2D(3800 + shift, 3600 + shift));
+	bottomLane.push_back(Point2D(3800 + shift, 3200 + shift));
+	bottomLane.push_back(Point2D(3800 + shift, 3000));
+	bottomLane.push_back(Point2D(3800 + shift, 2800));
+	bottomLane.push_back(Point2D(3800 + shift, 2600));
+	bottomLane.push_back(Point2D(3800 + shift, 2400));
+	bottomLane.push_back(Point2D(3800 + shift, 2200));
+	bottomLane.push_back(Point2D(3800 + shift, 2000));
+	bottomLane.push_back(Point2D(3800 + shift, 1800));
+	bottomLane.push_back(Point2D(3800 + shift, 1600));
+	bottomLane.push_back(Point2D(3800 + shift, 1400));
+	bottomLane.push_back(Point2D(3850 + shift, 1200));
+	bottomLane.push_back(Point2D(3850 + shift, 1000));
+	bottomLane.push_back(Point2D(3850 + shift, 800));
+	bottomLane.push_back(Point2D(3850 + shift, 650));
 }
 
 void Cartographer::update()
@@ -377,78 +411,20 @@ bool Cartographer::calcWay(const Point2D & desiredEndPoint, std::vector<Point2D>
 {
 #ifdef DEBUG_MAP
 	bool isSucces = locMap.calcWay(desiredEndPoint, result);
-	if (env->self->isMaster())
-	{
+	//if (env->self->isMaster())
+	//{
 		locMap.saveToFile();
-	}
+	//}
 	return isSucces;
 #else
 	return locMap.calcWay(desiredEndPoint, result);
 #endif // DEBUG_MAP
 
 }
-
-/*
-void Cartographer::getEnemies(std::vector<Object2D> & result) const
-{
-	result.clear();
-
-	const std::vector<Building>& buildings = env->world->getBuildings();
-	const std::vector<Wizard>& wizards = env->world->getWizards();
-	const std::vector<Minion>& minions = env->world->getMinions();
-
-	for (int i = 0; i < buildings.size(); ++i) {
-		const Building & building = buildings[i];
-		if (building.getFaction() != enemiesFaction)
-		{
-			continue;
-		}
-		else if (position.getDistanceTo(building) > scanRadius)
-		{
-			continue;
-		}
-
-		result.push_back(Object2D(building));
-	}
-
-	for (int i = 0; i < wizards.size(); ++i) {
-		const Wizard & wizard = wizards[i];
-		if (wizard.isMe())
-		{
-			continue;
-		}
-		else if (wizard.getFaction() != enemiesFaction)
-		{
-			continue;
-		}
-		else if (position.getDistanceTo(wizard) > scanRadius)
-		{
-			continue;
-		}
-
-		result.push_back(Object2D(wizard));
-	}
-
-	for (int i = 0; i < minions.size(); ++i) {
-		const Minion & minion = minions[i];
-		if (minion.getFaction() != enemiesFaction)
-		{
-			continue;
-		}
-		else if (position.getDistanceTo(minion) > scanRadius)
-		{
-			continue;
-		}
-
-		result.push_back(Object2D(minion));
-	}
-
-}*/
-
 const model::Building * Cartographer::getNearAlliedBuilding() const
 {
 	const model::Building * nearBuilding = nullptr;
-	double nearDistance = 4000.0;
+	double nearDistance = std::numeric_limits<double>::max();
 
 	const std::vector<Building>& buildings = env->world->getBuildings();
 	for (int i = 0; i < buildings.size(); ++i) {
@@ -471,14 +447,18 @@ const model::Building * Cartographer::getNearAlliedBuilding() const
 
 model::LaneType Cartographer::whatLane(const Point2D & point) const
 {
-	model::LaneType lane = model::_LANE_UNKNOWN_;
-	double minDistance = 4000.0;
+	model::LaneType lane = model::LANE_MIDDLE;
+	double minDistance = std::numeric_limits<double>::max();;
 	
 	double distance[3];
-	for (int i = 0; i < 3; ++i)
+	for (int i = 0; i < model::_LANE_COUNT_; ++i)
 	{
 		const std::vector<Point2D> & lanePoints = laneWaypoints[i];
 		int indexNear = point.findNearestIndex(lanePoints);
+		if (indexNear < 0)
+		{
+			continue;
+		}
 		
 		distance[i] = lanePoints[indexNear].getDistanceTo(point);
 
@@ -524,35 +504,3 @@ Cartographer::~Cartographer()
 {
 
 }
-
-/*void Cartographer::getNearObjects(const Object2D & who, std::vector<Object2D> & result)
-{
-result.clear();
-
-const int cellsSize = 9;
-Map::Cell * cells[cellsSize];
-
-Map::Cell * cell = map->findCell(who);
-
-for (int i = 0; i < cell->buildings.size(); ++i) {
-Object2D object(*(cell->buildings[i]));
-result.push_back(object);
-}
-
-for (int i = 0; i < cell->wizards.size(); ++i) {
-Object2D object(*(cell->wizards[i]));
-result.push_back(object);
-}
-
-for (int i = 0; i < cell->minions.size(); ++i) {
-Object2D object(*(cell->minions[i]));
-result.push_back(object);
-}
-
-for (int i = 0; i < cell->trees.size(); ++i) {
-Object2D object(*(cell->trees[i]));
-result.push_back(object);
-}
-}
-
-*/

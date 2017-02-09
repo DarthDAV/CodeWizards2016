@@ -51,14 +51,17 @@ namespace dav
 
 		};
 
-		const double LOW_HEALTH = 0.35;
-		const double NORM_HEALTH = 0.55;
-		const int ORDER_COUNTDOWN = 600;
+		const double NEAR_BASE = 950.0;
+		const double LOW_HEALTH = 0.50;
+		const double NORM_HEALTH = 0.75;
+		const int ORDER_COUNTDOWN = 1200;
 		int orderCountdown;
 				
 		GameEnvironment * env;
 		Cartographer * cg;
 
+		Point2D baseRetreatPoint;
+		
 		model::LaneType curLane;
 		std::list<Stage> plan;
 		std::list<Stage>::iterator stageIt;
@@ -68,6 +71,7 @@ namespace dav
 		
 		MoveTactics * moveTactics;
 		BattleTactics * battleTactics;
+		RetreatTactics * retreatTactics;
 		Tactics * curTactics;
 
 		model::SkillType skillByLevel[30];
@@ -77,6 +81,7 @@ namespace dav
 
 		void prepare();
 		void preparePlan();
+		model::LaneType getDefaultLane() const;
 		void useLane(model::LaneType lane);
 		void prepareTopLanePlan();
 		void prepareMiddleLanePlan();
@@ -85,19 +90,27 @@ namespace dav
 		void prepareSkills();
 		
 		void giveOrders();
+		void changeLaneIfNeed(model::LaneType toLane);
 		void executeOrders();
 		void readMessages();
 		
 		void onRespawn();
 
-		bool isBaseInDanger();		
+		bool isFight();
+		bool isBaseInDanger();
+		bool isRetreat();
+		bool isRetreatToBase();
+		bool isRetreatNotToBase();
+		bool isNearBase();
 		void retreatToBase();
-		
+		void setUrgentStage(Stage & stage);
+		void dropUrgentStage();
+		void skipUrgentStageIfNeed();
+
 		bool isLowHealth();	
 		bool isNormHealth();
 		void retreatToNearAlliedBuilding();
 		
-		bool ifMetEnemy();	
 		bool isEnemyArea();
 		void joinBattle();
 
@@ -143,11 +156,9 @@ namespace dav
 
 	public:
 
-		LaneAdvisor(GameEnvironment * _env, Cartographer * _cg) : env(_env), cg(_cg)
-		{
+		LaneAdvisor(GameEnvironment * _env, Cartographer * _cg); 
 
-		}
-
+		void clear();
 		void analyzeSituation();
 		void balance();
 		void getRecommendedOrders(std::vector<model::Message> & result);

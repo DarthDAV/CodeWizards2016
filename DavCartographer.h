@@ -151,11 +151,13 @@ namespace dav
 		}
 
 		double getOptimalMoveSpeed(const Point2D & targetPoint)
-		{
+		{			
+			/*
+			//TODO Двигаться вместе с союзниками
 			if (locMap.isWayBlocked(targetPoint))
 			{
-				return 1.5;
-			}
+				return 2.0;
+			}*/
 						
 			return env->getMaxForwardSpeed();
 		}

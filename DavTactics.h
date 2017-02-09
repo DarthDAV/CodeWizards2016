@@ -26,6 +26,17 @@ namespace dav
 	protected:
 
 		TacticsStatus status;
+
+		double getFastAngle(double angle)
+		{
+			double absAngle = std::abs(angle);
+			if (std::abs(angle) > PI)
+			{
+				return (2.0* PI - absAngle) * -1.0 * (angle / absAngle);//TODO :'(
+			}
+
+			return angle;
+		}
 	
 	public:
 		
@@ -48,8 +59,9 @@ namespace dav
 	{
 	protected:
 				
-		const double WAYPOINT_RADIUS = 60.0;
-		const double LOCAL_WAYPOINT_RADIUS = 12.5;
+		const double WAYPOINT_RADIUS = 45.0;
+		const double LOCAL_WAYPOINT_RADIUS = 5.0;
+		const double ANGLE_ACCURACY = 0.02;
 
 		std::vector<Point2D> globalWaypoints;
 		std::vector<Point2D> localWaypoints;
@@ -57,18 +69,20 @@ namespace dav
 		int curGlobalIndex;
 		int curLocalIndex;		
 
-		bool move();
-				
-		//Point2D getNextWaypoint();
-		//Point2D getPreviousWaypoint();
+		virtual void move();
 
+		bool calcContinue();
+		void moveForward();
+				
 		bool isGlobalWaypointReached();
 		bool isGlobalWayEnd();
 		bool isLocalWaypointReached();
 		bool isLocalWayEnd();
 
 		bool targetNextGlobalWaypoint();
-
+		int getNextGlobalWaypointIndex();
+		void randomLocalWay();
+				
 		bool isLastMove;
 		Point2D lastMovePos;
 
@@ -99,11 +113,38 @@ namespace dav
 	public:
 		MoveTactics();
 				
-		bool calcWay(Point2D endPoint);
+		virtual bool calcWay(Point2D endPoint);
+
+		virtual TacticsStatus work();
+
+		virtual ~MoveTactics();
+	};
+
+	class RetreatTactics : public MoveTactics
+	{
+	protected:
+
+		virtual void move();
+
+		bool isNearEnemyBackward();
+
+		void attack();
+
+		void moveBackward();
+	
+	public:
+		RetreatTactics() : MoveTactics()
+		{
+
+		}
 
 		TacticsStatus work();
 
-		virtual ~MoveTactics();
+		virtual ~RetreatTactics()
+		{
+
+		}
+
 	};
 
 	class BattleTactics : public Tactics

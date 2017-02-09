@@ -10,6 +10,59 @@
 
 namespace dav
 {
+	enum Direction
+	{
+		drTop = 0,
+		drDiagTR,
+		drRight,
+		drDiagBR,
+		drBottom,
+		drDiagBL,
+		drLeft,
+		drDiagTL,
+		_Direction_Count
+	};	
+
+	class DirectionHelper
+	{
+	protected:
+		int aroundShift[_Direction_Count][2];
+
+	public:
+
+		DirectionHelper();
+
+		void getShift(int fromRow, int fromCol, Direction direction, int & resultRow, int & resultCol) const
+		{
+			resultRow = fromRow + aroundShift[direction][0];
+			resultCol = fromCol + aroundShift[direction][1];
+		}
+
+		static bool isDiag(Direction directin)
+		{
+			return 	directin == drDiagTR || directin == drDiagBR || directin == drDiagBL || directin == drDiagTL;
+		}
+
+		static Direction prevDirecton(Direction direction)
+		{
+			if (direction == drTop)
+			{
+				return drDiagTL;
+			}
+
+			return Direction(direction - 1);
+		}
+
+		static Direction nextDirecton(Direction direction)
+		{
+			if (direction == drDiagTL)
+			{
+				return drTop;
+			}
+
+			return Direction(direction + 1);
+		}
+	};
 
 	class Pathfinding;
 
@@ -31,20 +84,7 @@ namespace dav
 		{			
 			const model::CircularUnit * unit;
 			CellContent content;
-		};
-
-		enum Direction
-		{
-			drTop = 0,
-			drDiagTR,
-			drRight,
-			drDiagBR,
-			drBottom,
-			drDiagBL,
-			drLeft,
-			drDiagTL,
-			_Direction_Count
-		};
+		};		
 
 		struct Coordinates
 		{
@@ -70,11 +110,12 @@ namespace dav
 		const int SELF_COL = 10;
 
 		const double NEAR_DISTANCE = 210.0;
-		const double COLLISION_RISK = 7.5;
+		const double COLLISION_RISK = 15.0;
 		const double BLOCKED_ALERT = 50.0;
 
 	private:		
 		
+		DirectionHelper dh;
 		Pathfinding  * pathfinding;
 		
 		Point2D selfPos;
@@ -84,7 +125,6 @@ namespace dav
 		Cell cells[21][21];
 
 		int aroundCoord[_Direction_Count][2];
-		int aroundShift[_Direction_Count][2];
 		const Cell * aroundCells[_Direction_Count];
 		
 		double nearestEnemyDistance, nearestAllyDistance;
@@ -103,8 +143,6 @@ namespace dav
 		
 		Direction calcDirection(const Point2D & beginPoint, const Point2D & endPoint) const;
 
-		bool isCanMoveDirect(Direction direction) const;
-				
 		bool isPossibleCollision(const Point2D & point, double radius, std::vector<const model::CircularUnit *> & result) const;
 
 		bool isPossibleCollision(const Point2D & point, std::vector<const model::CircularUnit *> & result) const
@@ -118,12 +156,7 @@ namespace dav
 		char getText(CellContent content) const;
 #endif
 
-	public:
-
-		static bool isDiag(LocalMap::Direction directin)
-		{
-			return 	directin == drDiagTR || directin == drDiagBR || directin == drDiagBL || directin == drDiagTL;
-		}
+	public:	
 		
 		LocalMap();
 
@@ -157,7 +190,7 @@ namespace dav
 
 		const Cell & cell(int row, int col) const
 		{
-			//TODOD
+			//TODO
 			return cells[row][col];
 		}
 
@@ -220,12 +253,6 @@ namespace dav
 #endif
 
 		bool isWayBlocked(const Point2D & targetPoint);
-
-		bool getNearCell(int midRow, int midCol, Direction direction, int &resultRow, int &resultCol) const;
-
-		static Direction prevDirecton(Direction direction);
-		static Direction nextDirecton(Direction direction);
-
 	};
 
 	class Pathfinding
@@ -263,6 +290,7 @@ namespace dav
 
 	private:	
 
+		DirectionHelper dh;
 		const LocalMap * map;
 		Vertex ** vertices;
 		int width;
@@ -279,6 +307,11 @@ namespace dav
 
 		const int MAX_F = 1000000;
 
+		bool isValid(int row, int col) const
+		{
+			return row >= 0 && row < height && col >= 0 && col < width;
+		}
+
 		void prepare();
 
 		bool startFind();
@@ -287,13 +320,13 @@ namespace dav
 		
 		int calcH(int row, int col) const;
 
-		void addToOpenList(const Vertex & vertex);
-		void removeFromOpenList(Vertex & vertex);
-		void sortOpenList();
+		void addToOpens(const Vertex & vertex);
+		void removeFromOpens(Vertex & vertex);
+		void sortOpens();
 
-		static LocalMap::Direction calcDirection(int fromRow, int fromCol, int toRow, int toCol);
+		static Direction calcDirection(int fromRow, int fromCol, int toRow, int toCol);
 		
-		bool isBarrierCorner(int fromRow, int fromCol, LocalMap::Direction direction) const;
+		bool isBarrierCorner(int fromRow, int fromCol, Direction direction) const;
 
 		void makePath();
 

@@ -1,6 +1,7 @@
 #include "DavAdvisor.h"
 
 #include <cstring>
+#include <limits>
 #include "DavGeometry.h"
 
 using namespace dav;
@@ -12,6 +13,8 @@ Advisor::Advisor(GameEnvironment * env) : curTactics(nullptr), curLane(model::_L
 
 	dav::Tactics::env = env;
 	dav::Tactics::cg = cg;
+
+	baseRetreatPoint = cg->getCollectionPoint(Cartographer::AB);
 
 	stageIt = plan.end();
 	prepare();	
@@ -27,11 +30,7 @@ void Advisor::prepare()
 void Advisor::preparePlan()
 {
 	model::LaneType lane = model::_LANE_UNKNOWN_;
-	if (env->self->isMaster())
-	{
-		lane = model::LANE_MIDDLE;
-	}
-	else
+	if (!env->self->isMaster())
 	{
 		readMessages();
 		if (isValidLane(orderLane))
@@ -40,12 +39,42 @@ void Advisor::preparePlan()
 		}
 	}
 		
-	if (lane < 0)
+	if (lane == model::_LANE_UNKNOWN_)
 	{
-		lane = (model::LaneType) env->randomInt(0, 2);
+		lane = getDefaultLane();
 	}
 
 	useLane(lane);
+}
+
+model::LaneType Advisor::getDefaultLane() const
+{
+	model::LaneType lane = model::_LANE_UNKNOWN_;
+	int wizardId = (int) env->self->getId();
+
+	switch (wizardId) {
+	case 1:
+	case 2:
+	case 6:
+	case 7:
+		lane = model::LANE_TOP;
+		break;
+	case 3:
+	case 8:
+		lane = model::LANE_MIDDLE;
+		break;
+	case 4:
+	case 5:
+	case 9:
+	case 10:
+		lane = model::LANE_BOTTOM;
+		break;
+	default:
+		lane = model::LANE_MIDDLE;
+		break;
+	}
+
+	return lane;
 }
 
 void Advisor::useLane(model::LaneType lane)
@@ -133,10 +162,12 @@ void Advisor::prepareTactics()
 {
 	moveTactics = new MoveTactics();
 	battleTactics = new BattleTactics();
+	retreatTactics = new RetreatTactics();
 }
 
 void Advisor::prepareSkills()
 {
+	skillByLevel[0] = model::_SKILL_UNKNOWN_;
 	skillByLevel[1] = model::SKILL_MAGICAL_DAMAGE_ABSORPTION_PASSIVE_1;
 	skillByLevel[2] = model::SKILL_MAGICAL_DAMAGE_ABSORPTION_AURA_1;
 	skillByLevel[3] = model::SKILL_MAGICAL_DAMAGE_ABSORPTION_PASSIVE_2;
@@ -172,6 +203,7 @@ Advisor::~Advisor()
 {
 	delete moveTactics;
 	delete battleTactics;
+	delete retreatTactics;
 }
 
 void Advisor::work()
@@ -199,24 +231,23 @@ void Advisor::work()
 		useStageTactics();
 	}
 
-	if (isLowHealth())
+	if (isBaseInDanger() && !isRetreatToBase() && !isNearBase())
 	{
+		retreatToBase();
+	}	
+	else if (isLowHealth() && !isRetreat() )
+	{		
 		retreatToNearAlliedBuilding();
 	}
-	else if (ifMetEnemy())
+	else if (isEnemyArea() && !isFight() && !isRetreat())
 	{
 		joinBattle();
 	}
-	else if (isBaseInDanger())
-	{
-		retreatToBase();
+	else if (isNormHealth() && isRetreatNotToBase())
+	{		
+		skipUrgentStageIfNeed();
 	}
-	else if (isNormHealth() && stageIt->getGoal() == Stage::sgRetreatToPoint)
-	{
-		nextStage();
-		useStageTactics();
-	}
-	
+		
 	curTactics->work();
 
 	if (curTactics->getStatus() == Tactics::tsCompleted)
@@ -226,8 +257,13 @@ void Advisor::work()
 	}
 	else if (curTactics->getStatus() != Tactics::tsInProgress)
 	{
-		retreatToBase();//TODO Если сбой тактики
+		retreatToNearAlliedBuilding();//Если сбой тактики
 	}
+}
+
+bool Advisor::isFight()
+{
+	return stageIt->getGoal() == Stage::sgDestroyEnemy;
 }
 
 void Advisor::giveOrders()
@@ -250,12 +286,20 @@ void Advisor::giveOrders()
 
 	//Приказ для себя
 	orderLane = laneAdvisor.getSelfLane();
-	if (curLane != orderLane && isValidLane(orderLane))
+	changeLaneIfNeed(orderLane);
+}
+
+void Advisor::changeLaneIfNeed(model::LaneType toLane)
+{
+	//TODO Смена дорожки c переходами
+	if (curLane == orderLane || !isValidLane(orderLane))
 	{
-		useLane(orderLane);
-		retreatToBase();
+		return;
 	}
 	
+	useLane(orderLane);
+	stageIt = plan.insert(plan.begin(), Stage(baseRetreatPoint, Stage::sgReachPoint));
+	stageIt = plan.begin();
 }
 
 void Advisor::executeOrders()
@@ -263,13 +307,8 @@ void Advisor::executeOrders()
 	model::LaneType prevOrderLane = orderLane;
 	model::SkillType prevOrderSkill = orderSkill;//TODO Изучение умений
 	readMessages();
-
-	if (curLane != orderLane && isValidLane(orderLane))
-	{
-		//Смена дорожки c переходами
-		useLane(orderLane);
-		retreatToBase();
-	}
+	
+	changeLaneIfNeed(orderLane);
 }
 
 void Advisor::readMessages()
@@ -292,15 +331,21 @@ void Advisor::skillLearn()
 	}
 
 	int curLevel = env->self->getLevel();
-	for (int i = 1; i <= curLevel; ++i)//TODO lastLevelUp
+	if (!curLevel)
+	{
+		return;
+	}
+
+	for (int i = 1 + lastLevelUp; i <= curLevel; ++i)
 	{
 		model::SkillType skill = getSkill(i);
 		if (!env->isSkillLeanded(skill))
 		{
-			lastLevelUp = curLevel;
 			env->move->setSkillToLearn(skill);			
 			return;
-		}		
+		}	
+
+		lastLevelUp = i;//Изучено для уровня
 	}
 }
 
@@ -313,8 +358,13 @@ void Advisor::onRespawn()
 {
 	LaneAdvisor laneAdvisor(env, cg);
 	laneAdvisor.analyzeSituation();
-	curLane = laneAdvisor.getWorstLane();
-	useLane(curLane);
+
+	model::LaneType lane = laneAdvisor.getWorstLane();
+	if (!isValidLane(lane))
+	{
+		lane = getDefaultLane();
+	}
+	useLane(lane);
 
 	if (env->self->isMaster())
 	{
@@ -339,15 +389,54 @@ bool Advisor::isBaseInDanger()
 	return false;
 }
 
+bool Advisor::isRetreat()
+{
+	return stageIt->getGoal() == Stage::sgRetreatToPoint;
+}
+
+bool Advisor::isRetreatToBase()
+{
+	return stageIt->getGoal() == Stage::sgRetreatToPoint && stageIt->getPoint() == baseRetreatPoint;
+}
+
+bool Advisor::isRetreatNotToBase()
+{
+	return stageIt->getGoal() == Stage::sgRetreatToPoint && stageIt->getPoint() != baseRetreatPoint;
+}
+
+bool Advisor::isNearBase()
+{
+	return cg->getSelf().getCenter().getDistanceTo(baseRetreatPoint) < NEAR_BASE;
+}
+
 void Advisor::retreatToBase()
 {
-	if (stageIt->getGoal() == Stage::sgRetreatToPoint && stageIt->getPoint() == cg->getCollectionPoint(Cartographer::AB))
-	{
-		return;
-	}
-	
-	stageIt = plan.insert(stageIt, Stage(cg->getCollectionPoint(Cartographer::AB), Stage::sgRetreatToPoint));
+	Stage stage(baseRetreatPoint, Stage::sgRetreatToPoint);
+	setUrgentStage(stage);
 	useStageTactics();
+}
+
+void Advisor::setUrgentStage(Stage & stage)
+{
+	dropUrgentStage();
+	stageIt = plan.insert(stageIt, stage);
+}
+
+void Advisor::dropUrgentStage()
+{
+	if (stageIt->getGoal() == Stage::sgDestroyEnemy || stageIt->getGoal() == Stage::sgRetreatToPoint)
+	{
+		stageIt = plan.erase(stageIt);
+	}
+}
+
+void Advisor::skipUrgentStageIfNeed()
+{
+	if (stageIt->getGoal() == Stage::sgDestroyEnemy || stageIt->getGoal() == Stage::sgRetreatToPoint)
+	{
+		stageIt = plan.erase(stageIt);
+		useStageTactics();
+	}
 }
 
 bool Advisor::isLowHealth()
@@ -362,11 +451,6 @@ bool Advisor::isNormHealth()
 
 void Advisor::retreatToNearAlliedBuilding()
 {
-	if (stageIt->getGoal() == Stage::sgRetreatToPoint)
-	{
-		return;
-	}	
-	
 	const model::Building * building = cg->getNearAlliedBuilding();
 	if (building == nullptr)
 	{
@@ -375,29 +459,21 @@ void Advisor::retreatToNearAlliedBuilding()
 	}
 
 	const Point2D & colPoint = cg->getNearestCollectionPoint(Point2D(*building));
-	stageIt = plan.insert(stageIt, Stage(colPoint, Stage::sgRetreatToPoint));
+	Stage stage(colPoint, Stage::sgRetreatToPoint);
+	setUrgentStage(stage);
 	useStageTactics();	
-}
-
-bool Advisor::ifMetEnemy()
-{
-	return isEnemyArea() && stageIt->getGoal() != Stage::sgDestroyEnemy;
 }
 
 bool Advisor::isEnemyArea()
 {
 	double distance = cg->getNearEnemyDistance();
-	return distance <= env->game->getWizardCastRange();
+	return distance <= env->game->getWizardCastRange() - 50.0;
 }
 
 void Advisor::joinBattle()
 {
-	if (stageIt->getGoal() == Stage::sgDestroyEnemy)
-	{
-		return;
-	}
-	
-	stageIt = plan.insert(stageIt, Stage(cg->getSelf().getCenter(), Stage::sgDestroyEnemy));
+	Stage stage(cg->getSelf().getCenter(), Stage::sgDestroyEnemy);
+	setUrgentStage(stage);
 	useStageTactics();
 }
 
@@ -434,10 +510,35 @@ void Advisor::useStageTactics()
 	}
 	if (curStag.getGoal() == Stage::sgRetreatToPoint)
 	{
-		moveTactics->calcWay(curStag.getPoint());
-		curTactics = moveTactics;
+		retreatTactics->calcWay(curStag.getPoint());
+		curTactics = retreatTactics;
 	}
 
+}
+
+LaneAdvisor::LaneAdvisor(GameEnvironment * _env, Cartographer * _cg) : env(_env), cg(_cg)
+{
+	clear();
+}
+
+void LaneAdvisor::clear()
+{
+	beginWizardLane.clear();
+	moveWizardLane.clear();
+	allies.clear();
+	enemies.clear();
+
+	for (int i = 0; i < model::_LANE_COUNT_; ++i)
+	{
+		wizardsByLane[i][0].clear();
+		wizardsByLane[i][1].clear();
+	}
+
+	std::memset(beginBalance, 0, sizeof(int)*model::_LANE_COUNT_);
+	std::memset(beginReserve, 0, sizeof(int)*model::_LANE_COUNT_);
+	std::memset(resultBalance, 0, sizeof(int)*model::_LANE_COUNT_);
+
+	wizardsReserve.clear();
 }
 
 void LaneAdvisor::analyzeSituation()
@@ -451,7 +552,7 @@ void LaneAdvisor::analyzeSituation()
 	{
 		beginBalance[i] = wizardsByLane[i][0].size() - wizardsByLane[i][1].size();
 
-		//TODO Учесть башни
+		//TODO Учесть башни и миньонов
 
 		if (beginBalance[i] >= 1)
 		{
@@ -463,7 +564,6 @@ void LaneAdvisor::analyzeSituation()
 
 void LaneAdvisor::calcWizardsByLane()
 {
-
 	std::list<const model::Wizard *>::iterator it;
 	for (it = enemies.begin(); it != enemies.end(); ++it)
 	{
@@ -493,17 +593,21 @@ void LaneAdvisor::balance()
 	if (!wizardsReserve.size())
 	{
 		return;
-	}
-	
+	}	
 
 	while (wizardsReserve.size() > 0)
 	{		
 		model::LaneType worstLane = getWorstLane();
+		if (worstLane == model::_LANE_UNKNOWN_)
+		{
+			break;
+		}
+
 		int worstBalance = resultBalance[worstLane];
 				
 		if (worstBalance >= 0)
 		{
-			break;//TODO
+			break;//TODO Равномерно распределять?
 		}
 		
 		int needCount = worstBalance == 0 ? 1 : std::abs(worstBalance);
@@ -516,7 +620,7 @@ void LaneAdvisor::balance()
 			--reinforcementCount;
 
 			model::LaneType reserveLane = cg->whatLane(Point2D(*wizard));
-			--(resultBalance[reserveLane]);
+			--(resultBalance[reserveLane]);//TODO Проверка
 
 			moveWizardLane[wizard] = worstLane;
 			++(resultBalance[worstLane]);
@@ -544,15 +648,15 @@ void LaneAdvisor::calcWizardsReserve()
 
 model::LaneType LaneAdvisor::getWorstLane()
 {
-	int worstBalance = 5000;
+	int worstBalance = std::numeric_limits<int>::max();
 	model::LaneType worstLane = model::_LANE_UNKNOWN_;
 
 	for (int i = 0; i < model::_LANE_COUNT_; ++i)
 	{
 		if (resultBalance[i] < worstBalance)
 		{
-			worstLane = (model::LaneType) i;
 			worstBalance = resultBalance[i];
+			worstLane = (model::LaneType) i;
 		}
 	}
 

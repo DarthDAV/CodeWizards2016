@@ -3,8 +3,8 @@
 #ifndef _DAV_GEOMETRY_H_
 #define _DAV_GEOMETRY_H_
 
-//#define PI 3.14159265358979323846
-//#define _USE_MATH_DEFINES
+#define PI 3.14159265358979323846
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include <vector>
 
@@ -60,6 +60,11 @@ namespace dav
 		bool operator ==(const Point2D &other) const
 		{
 			return x == other.x && y == other.y;
+		}
+
+		bool operator !=(const Point2D &other) const
+		{
+			return x != other.x || y != other.y;
 		}
 
 		double getDistanceTo(double x, double y) const  {
