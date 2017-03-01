@@ -25,6 +25,8 @@ namespace dav
 
 	protected:
 
+		const double ANGLE_ACCURACY = 0.02;
+
 		TacticsStatus status;
 
 		double getFastAngle(double angle)
@@ -59,9 +61,8 @@ namespace dav
 	{
 	protected:
 				
-		const double WAYPOINT_RADIUS = 45.0;
-		const double LOCAL_WAYPOINT_RADIUS = 5.0;
-		const double ANGLE_ACCURACY = 0.02;
+		const double WAYPOINT_RADIUS = 110.0;
+		const double LOCAL_WAYPOINT_RADIUS = 17.5;
 
 		std::vector<Point2D> globalWaypoints;
 		std::vector<Point2D> localWaypoints;
@@ -79,9 +80,10 @@ namespace dav
 		bool isLocalWaypointReached();
 		bool isLocalWayEnd();
 
+		bool calcLocalWay();
 		bool targetNextGlobalWaypoint();
 		int getNextGlobalWaypointIndex();
-		void randomLocalWay();
+		void randomLocalWay(const Point2D & endPoint);
 				
 		bool isLastMove;
 		Point2D lastMovePos;
@@ -126,11 +128,13 @@ namespace dav
 
 		virtual void move();
 
-		bool isNearEnemyBackward();
+		bool isBestMoveBackward();
 
 		void attack();
 
 		void moveBackward();
+
+		const model::CircularUnit * getTargetByMinAngle();
 	
 	public:
 		RetreatTactics() : MoveTactics()
@@ -151,6 +155,7 @@ namespace dav
 	{
 	protected:
 
+		const model::LivingUnit * getTarget();
 
 	public:
 

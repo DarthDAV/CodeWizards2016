@@ -128,9 +128,9 @@ namespace dav
 		const Cell * aroundCells[_Direction_Count];
 		
 		double nearestEnemyDistance, nearestAllyDistance;
-		const model::CircularUnit *nearestEnemy, *nearestAlly;
-		std::vector<const model::CircularUnit *> enemies;
-		std::vector<const model::CircularUnit *> allies;
+		const model::LivingUnit *nearestEnemy, *nearestAlly;
+		std::vector<const model::LivingUnit *> enemies;
+		std::vector<const model::LivingUnit *> allies;
 		std::vector<const model::CircularUnit *> nearUnits;
 		
 		void clear();
@@ -140,6 +140,10 @@ namespace dav
 		void updateCollisions();
 
 		bool getNearestPlace(const Point2D & desiredEndPoint, Point2D & result) const;
+
+		void getNearestBorder(const Point2D &  desiredEndPoint, int &resultRow, int &resultCol) const;
+		
+		bool findFirstAround(const int midRow, const int midCol, const int shift, const CellContent needContent, int & resultRow, int & resultCol) const;
 		
 		Direction calcDirection(const Point2D & beginPoint, const Point2D & endPoint) const;
 
@@ -174,7 +178,7 @@ namespace dav
 		
 		void init(const model::Wizard & self);
 		
-		void add(const model::CircularUnit & unit);
+		void add(const model::LivingUnit & unit);
 
 		void fixing();
 
@@ -219,26 +223,24 @@ namespace dav
 
 		bool normalize(const Point2D & pos, Point2D & normPos) const;
 
-		bool findFirstAround(CellContent needContent, int & row, int & col) const;
+		bool calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & result, bool force = false) const;
 
-		bool calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & result) const;
-
-		const std::vector<const model::CircularUnit *> & getEnemies() const
+		const std::vector<const model::LivingUnit *> & getEnemies() const
 		{
 			return enemies;
 		}
 
-		const std::vector<const model::CircularUnit *> & getAllies() const
+		const std::vector<const model::LivingUnit *> & getAllies() const
 		{
 			return allies;
 		}
 
-		const model::CircularUnit * getNearestEnemy() const
+		const model::LivingUnit * getNearestEnemy() const
 		{
 			return nearestEnemy;
 		}
 
-		const model::CircularUnit *getNearestAlly() const
+		const model::LivingUnit *getNearestAlly() const
 		{
 			return nearestAlly;
 		}
@@ -290,6 +292,8 @@ namespace dav
 
 	private:	
 
+		bool partialIsEmpty;
+		
 		DirectionHelper dh;
 		const LocalMap * map;
 		Vertex ** vertices;
@@ -337,6 +341,11 @@ namespace dav
 		bool findPath(const LocalMap::Coordinates & _begin, const LocalMap::Coordinates & _end);
 
 		void getPath(std::vector<LocalMap::Coordinates> & result) const;
+
+		void setPartialIsEmpty(bool isEmpty)
+		{
+			partialIsEmpty = isEmpty;
+		}
 
 		~Pathfinding();
 

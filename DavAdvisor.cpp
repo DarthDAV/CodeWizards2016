@@ -231,12 +231,27 @@ void Advisor::work()
 		useStageTactics();
 	}
 
-	if (isBaseInDanger() && !isRetreatToBase() && !isNearBase())
+	if (isBaseInDanger())
 	{
-		retreatToBase();
-	}	
+		if (!isRetreatToBase() && !isNearBase())
+		{
+			retreatToBase();
+		}
+		else if (isRetreatToBase() && isOnBase())
+		{
+			protectBase();
+		}
+		else if (isEnemyArea() && !isFight())
+		{
+			joinBattle();
+		}
+	}
 	else if (isLowHealth() && !isRetreat() )
 	{		
+		retreatToNearAlliedBuilding();
+	}
+	else if (isFight() && ((cg->getNearEnemyDistance() < 200.0) || (cg->getNearAllyDistance() > 400.0)) )
+	{
 		retreatToNearAlliedBuilding();
 	}
 	else if (isEnemyArea() && !isFight() && !isRetreat())
@@ -292,18 +307,25 @@ void Advisor::giveOrders()
 void Advisor::changeLaneIfNeed(model::LaneType toLane)
 {
 	//TODO Смена дорожки c переходами
-	if (curLane == orderLane || !isValidLane(orderLane))
+	if (curLane == toLane || !isValidLane(toLane))
 	{
 		return;
 	}
 	
-	useLane(orderLane);
+	useLane(toLane);
 	stageIt = plan.insert(plan.begin(), Stage(baseRetreatPoint, Stage::sgReachPoint));
-	stageIt = plan.begin();
 }
 
 void Advisor::executeOrders()
 {
+	--orderCountdown;
+	if (orderCountdown > 0)
+	{
+		return;
+	}
+
+	orderCountdown = ORDER_COUNTDOWN;
+	
 	model::LaneType prevOrderLane = orderLane;
 	model::SkillType prevOrderSkill = orderSkill;//TODO Изучение умений
 	readMessages();
@@ -368,6 +390,7 @@ void Advisor::onRespawn()
 
 	if (env->self->isMaster())
 	{
+		orderCountdown = 1;
 		giveOrders();
 	}
 }
@@ -407,6 +430,29 @@ bool Advisor::isRetreatNotToBase()
 bool Advisor::isNearBase()
 {
 	return cg->getSelf().getCenter().getDistanceTo(baseRetreatPoint) < NEAR_BASE;
+}
+
+bool Advisor::isOnBase()
+{
+	return cg->getSelf().getCenter().getDistanceTo(baseRetreatPoint) < GROUP_RADIUS;
+}
+
+void Advisor::protectBase()
+{
+	dropUrgentStage();
+
+	auto enemy = cg->getNearestEnemy();
+	if (enemy != nullptr)
+	{
+		model::LaneType lane = cg->whatLane(Point2D(*enemy));
+		if (isValidLane(lane))
+		{
+			curLane = lane;
+		}
+	}
+
+	useLane(curLane);
+	useStageTactics();	
 }
 
 void Advisor::retreatToBase()
@@ -464,10 +510,25 @@ void Advisor::retreatToNearAlliedBuilding()
 	useStageTactics();	
 }
 
+void Advisor::retreatToNearAlly()
+{
+	auto ally = cg->getNearestAlly();
+	if (ally == nullptr)
+	{
+		retreatToNearAlliedBuilding();
+		return;
+	}
+
+	Point2D point(*ally);
+	Stage stage(point, Stage::sgRetreatToPoint);
+	setUrgentStage(stage);
+	useStageTactics();
+}
+
 bool Advisor::isEnemyArea()
 {
 	double distance = cg->getNearEnemyDistance();
-	return distance <= env->game->getWizardCastRange() - 50.0;
+	return distance <= env->game->getWizardCastRange() - 25.0;
 }
 
 void Advisor::joinBattle()

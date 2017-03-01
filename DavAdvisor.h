@@ -51,10 +51,11 @@ namespace dav
 
 		};
 
+		const double GROUP_RADIUS = 350.0;
 		const double NEAR_BASE = 950.0;
-		const double LOW_HEALTH = 0.50;
-		const double NORM_HEALTH = 0.75;
-		const int ORDER_COUNTDOWN = 1200;
+		const double LOW_HEALTH = 0.40;
+		const double NORM_HEALTH = 0.65;
+		const int ORDER_COUNTDOWN = 400;
 		int orderCountdown;
 				
 		GameEnvironment * env;
@@ -102,7 +103,9 @@ namespace dav
 		bool isRetreatToBase();
 		bool isRetreatNotToBase();
 		bool isNearBase();
+		bool isOnBase();		
 		void retreatToBase();
+		void protectBase();
 		void setUrgentStage(Stage & stage);
 		void dropUrgentStage();
 		void skipUrgentStageIfNeed();
@@ -110,6 +113,7 @@ namespace dav
 		bool isLowHealth();	
 		bool isNormHealth();
 		void retreatToNearAlliedBuilding();
+		void retreatToNearAlly();
 		
 		bool isEnemyArea();
 		void joinBattle();

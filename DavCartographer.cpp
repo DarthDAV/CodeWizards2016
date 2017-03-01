@@ -47,16 +47,16 @@ void Cartographer::prepareMarkers()
 	//Свободное место рядом
 	nearMarkers[AB] = Point2D(600, 3400);
 	nearMarkers[EB] = Point2D(3400, 600);
-	nearMarkers[TAT1] = Point2D(200, 2700);
-	nearMarkers[TAT2] = Point2D(200, 1700);
+	nearMarkers[TAT1] = Point2D(200, 2900);
+	nearMarkers[TAT2] = Point2D(200, 1800);
 	nearMarkers[TET1] = Point2D(1400, 200);
 	nearMarkers[TET2] = Point2D(2400, 200);
-	nearMarkers[MAT1] = Point2D(1000, 3000);
-	nearMarkers[MAT2] = Point2D(1800, 2200);
+	nearMarkers[MAT1] = Point2D(800, 3100);
+	nearMarkers[MAT2] = Point2D(1600, 2400);
 	nearMarkers[MET1] = Point2D(2200, 2000);
 	nearMarkers[MET2] = Point2D(2600, 1400);
-	nearMarkers[BAT1] = Point2D(1400, 3800);
-	nearMarkers[BAT2] = Point2D(2400, 3800);
+	nearMarkers[BAT1] = Point2D(1250, 3800);
+	nearMarkers[BAT2] = Point2D(2250, 3800);
 	nearMarkers[BET1] = Point2D(3800, 2600);
 	nearMarkers[BET2] = Point2D(3800, 1600);
 
@@ -133,8 +133,13 @@ void Cartographer::prepareDefaultWays()
 	topLane.push_back(Point2D(200 + shift, 1300));
 	topLane.push_back(Point2D(200 + shift, 1150));
 	topLane.push_back(Point2D(200 + shift, 1000));
-	topLane.push_back(Point2D(300 + shift, 700));
-	topLane.push_back(Point2D(700 + shift, 200));
+	topLane.push_back(Point2D(200 + shift, 800));
+	topLane.push_back(Point2D(250, 700));
+	topLane.push_back(Point2D(300, 600));
+	topLane.push_back(Point2D(500, 500));
+	topLane.push_back(Point2D(600, 350));
+	topLane.push_back(Point2D(700, 200));
+	topLane.push_back(Point2D(850, 200 + shift));
 	topLane.push_back(Point2D(1000, 200 + shift));
 	topLane.push_back(Point2D(1200, 200 + shift));
 	topLane.push_back(Point2D(1400, 200 + shift));
@@ -193,6 +198,7 @@ void Cartographer::prepareDefaultWays()
 	bottomLane.push_back(Point2D(3600, 3800 + shift));
 	bottomLane.push_back(Point2D(3800, 3800 + shift));
 	bottomLane.push_back(Point2D(3800 + shift, 3600 + shift));
+	bottomLane.push_back(Point2D(3800 + shift, 3400 + shift));
 	bottomLane.push_back(Point2D(3800 + shift, 3200 + shift));
 	bottomLane.push_back(Point2D(3800 + shift, 3000));
 	bottomLane.push_back(Point2D(3800 + shift, 2800));
@@ -411,16 +417,25 @@ bool Cartographer::calcWay(const Point2D & desiredEndPoint, std::vector<Point2D>
 {
 #ifdef DEBUG_MAP
 	bool isSucces = locMap.calcWay(desiredEndPoint, result);
-	//if (env->self->isMaster())
-	//{
-		locMap.saveToFile();
-	//}
+	locMap.saveToFile();
 	return isSucces;
 #else
 	return locMap.calcWay(desiredEndPoint, result);
 #endif // DEBUG_MAP
 
 }
+
+bool Cartographer::calcWayForce(const Point2D & desiredEndPoint, std::vector<Point2D> & result) const
+{
+#ifdef DEBUG_MAP
+	bool isSucces = locMap.calcWay(desiredEndPoint, result, true);
+	locMap.saveToFile();
+	return isSucces;
+#else
+	return locMap.calcWay(desiredEndPoint, result, true);
+#endif // DEBUG_MAP
+}
+
 const model::Building * Cartographer::getNearAlliedBuilding() const
 {
 	const model::Building * nearBuilding = nullptr;

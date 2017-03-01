@@ -106,7 +106,7 @@ void LocalMap::init(const model::Wizard & self)
 	zeroPos = selfPos.getShift(-1.0 * (CELL_SIZE*SELF_COL + CELL_SIZE / 2), -1.0 * (CELL_SIZE*SELF_ROW+ CELL_SIZE / 2));
 }
 
-void LocalMap::add(const model::CircularUnit & unit)
+void LocalMap::add(const model::LivingUnit & unit)
 {
 	Point2D pos(unit);	
 	int col, row;
@@ -277,7 +277,7 @@ void LocalMap::fixing()
 	for (size_t row = 0; row < ROWS_COUNT; row++)
 	{
 		double y = zeroY + row*CELL_SIZE;
-		if (y < 0 || y >= 3930)//TODO
+		if (y < 0 || y >= 3930)
 		{
 			continue;
 		}
@@ -285,7 +285,7 @@ void LocalMap::fixing()
 		for (size_t col = 0; col < COLS_COUNT; col++)
 		{						
 			double x = zeroX + col*CELL_SIZE;
-			if (x < 0 || x >= 3930)//TODO
+			if (x < 0 || x >= 3930)
 			{
 				continue;
 			}		
@@ -381,25 +381,7 @@ char LocalMap::getText(CellContent content) const
 }
 #endif
 
-bool LocalMap::findFirstAround(CellContent needContent, int & row, int & col) const
-{
-
-	for (int i = 0; i < _Direction_Count; ++i)
-	{
-		row = aroundCoord[i][0];
-		col = aroundCoord[i][1];
-		
-		if (cell(row, col).content == needContent)
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-
-bool LocalMap::calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & result) const
+bool LocalMap::calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & result, bool force) const
 {
 	result.clear();
 
@@ -408,7 +390,7 @@ bool LocalMap::calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & r
 	Point2D endPoint;//Окончание пути с учётом свободного места
 	if (!getNearestPlace(desiredEndPoint, endPoint))
 	{		
-		return false;//TODO Место должно быть
+		return false;
 	}
 
 	Coordinates beginCoord;
@@ -416,6 +398,7 @@ bool LocalMap::calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & r
 	getCellPos(beginPoint, beginCoord);
 	getCellPos(endPoint, endCoord);
 
+	pathfinding->setPartialIsEmpty(force);
 	if (!pathfinding->findPath(beginCoord, endCoord))
 	{
 		return false;
@@ -437,38 +420,105 @@ bool LocalMap::calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & r
 
 bool LocalMap::getNearestPlace(const Point2D & desiredEndPoint, Point2D & result) const
 {
-	int cRow, cCol;
-	if (!getCellPos(desiredEndPoint, cRow, cCol))
+	int row, col;
+	if (!getCellPos(desiredEndPoint, row, col))
 	{
-		return false;//TODO Выход за пределы локальной карты, переносить на край
+		//Выход за пределы локальной карты переносим конец пути на край карты
+		//Переносим на ближайщий край карты
+		getNearestBorder(desiredEndPoint, row, col);		
 	}
 
-	LocalMap::CellContent content = cell(cRow, cCol).content;
-	if (content == LocalMap::ccEmpty)
+	if (cell(row, col).content == LocalMap::ccEmpty)
 	{
-		result = desiredEndPoint;
-		return true;
+		return cellToPos(row, col, result);;
 	}
 
-	int nRow, nCol;
-	for (int i = 0; i < _Direction_Count; ++i)
+	int altRow, altCol;
+	if (findFirstAround(row, col, 1, LocalMap::ccEmpty, altRow, altCol))
 	{
-		dh.getShift(cRow, cCol, Direction(i), nRow, nCol);
-		if (!isValid(nRow, nCol))
+		return cellToPos(altRow, altCol, result);
+	}
+
+	//Нет рядом свободного в соседних клетках
+	//Ищем в больше радиусе
+	if (!findFirstAround(row, col, 5, LocalMap::ccEmpty, altRow, altCol))
+	{
+		return cellToPos(altRow, altCol, result);
+	}
+
+	return false;
+}
+
+void LocalMap::getNearestBorder(const Point2D &  desiredEndPoint, int &resultRow, int &resultCol) const
+{
+	double xShift = desiredEndPoint.getX() - zeroPos.getX();
+	double yShift = desiredEndPoint.getY() - zeroPos.getY();
+
+	resultRow = yShift / CELL_SIZE;
+	resultCol = xShift / CELL_SIZE;
+
+	if (resultRow < 0)
+	{
+		resultRow = 0;
+	}
+	else if (resultRow >= ROWS_COUNT)
+	{
+		resultRow = ROWS_COUNT - 1;
+	}
+
+	if (resultCol < 0)
+	{
+		resultCol = 0;
+	}
+	else if (resultCol >= COLS_COUNT)
+	{
+		resultCol = COLS_COUNT - 1;
+	}
+}
+
+bool LocalMap::findFirstAround(const int midRow, const int midCol, const int shift, const CellContent needContent, int & resultRow, int & resultCol) const
+{
+	int row, col;
+
+	if (shift == 1)
+	{
+		for (int i = 0; i < _Direction_Count; ++i)
 		{
-			continue;
+			row = aroundCoord[i][0];
+			col = aroundCoord[i][1];
+
+			if (cell(row, col).content == needContent)
+			{
+				resultRow = row;
+				resultCol = col;
+				return true;
+			}
 		}
-
-		if (cell(nRow, nCol).content != ccEmpty)
-		{
-			continue;
-		}
-
-		return cellToPos(nRow, nCol, result);
-
+		
+		return false;
 	}
 
-	return false;//TODO свободные клетки 
+	for (int rsh = -1 * shift; rsh <= shift; ++rsh)
+	{
+		row = midRow + rsh;
+		for (int csh = -1 * shift; csh <= shift; ++csh)
+		{
+			col = midCol + csh;
+			if (!isValid(row, col))
+			{
+				continue;
+			}
+
+			if (cell(row, col).content == needContent)
+			{
+				resultRow = row;
+				resultCol = col;
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 bool LocalMap::isPossibleCollision(const Point2D & point, double radius, std::vector<const model::CircularUnit *> & result) const
@@ -496,7 +546,7 @@ void LocalMap::convertCollisions(const Point2D & position, const std::vector<con
 	for (int i = 0; i < positionCollisionUnits.size(); ++i)
 	{
 		const model::CircularUnit * unit = positionCollisionUnits[i];
-		Direction direction = calcDirection(position, Point2D(*unit));//TODO
+		Direction direction = calcDirection(position, Point2D(*unit));
 		collisions[direction] = true;
 	}
 
@@ -597,7 +647,7 @@ bool LocalMap::isWayBlocked(const Point2D & targetPoint)
 	return false;
 }
 
-Pathfinding::Pathfinding(const LocalMap * _map) : map(_map)
+Pathfinding::Pathfinding(const LocalMap * _map) : map(_map), partialIsEmpty(false)
 {
 	
 	width = map->getWidth();
@@ -650,7 +700,17 @@ void Pathfinding::prepare()
 		{
 			Vertex & vertex = vertices[row][col];
 			vertex.clear();
-			vertex.isEmpty = map->cell(row, col).content == LocalMap::ccEmpty;
+			
+			LocalMap::CellContent content = map->cell(row, col).content;
+			if (partialIsEmpty && content == LocalMap::ccPartialEmpty)
+			{
+				vertex.isEmpty = true;
+			}
+			else
+			{
+				vertex.isEmpty = ( content == LocalMap::ccEmpty );
+			}
+
 			vertex.selfRow = row;
 			vertex.selfCol = col;
 		}

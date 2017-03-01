@@ -26,8 +26,8 @@ bool MoveTactics::calcWay(Point2D endPoint)
 	//Строим путь от начальной точки (волщебника) до конечной точки
 	if (!cg->calcWayByLane(endPoint, globalWaypoints))
 	{
-		randomLocalWay();//TODO Разобраться
-		return true;
+		status = tsFailure;
+		return false;
 	}
 
 	curGlobalIndex = 0;
@@ -43,21 +43,47 @@ bool MoveTactics::calcWay(Point2D endPoint)
 
 bool MoveTactics::targetNextGlobalWaypoint()
 {
-	//curGlobalIndex = getNextGlobalWaypointIndex();
-	if (curGlobalIndex < (globalWaypoints.size() - 1))
+	if (curGlobalIndex == (globalWaypoints.size() - 1))
 	{
-		++curGlobalIndex;
-	}	
-
-	if (!cg->calcWay(globalWaypoints[curGlobalIndex], localWaypoints))
-	{		
-		randomLocalWay();
+		curGlobalIndex = getNextGlobalWaypointIndex();//TODO Разобраться. Локальный путь закончился раньше глобального. Сбились с пути
 	}
-
-	curLocalIndex = 1;
+	else if (isGlobalWaypointReached())
+	{
+		++curGlobalIndex;//Следующая точка доступна только полсе достижения текущей
+	}
+	
+	calcLocalWay();
 	resetLastMove();
 	return true;
 }
+
+bool MoveTactics::calcLocalWay()
+{
+	Point2D & targetRef = globalWaypoints[curGlobalIndex];
+	if (!cg->calcWay(targetRef, localWaypoints))
+	{
+		if (env->randomBool())
+		{
+			if (!cg->calcWayForce(targetRef, localWaypoints))
+			{
+				randomLocalWay(targetRef);
+			}
+		}
+		else
+		{
+			randomLocalWay(targetRef);
+		}
+	}
+
+	if (targetRef != localWaypoints.back())
+	{
+		targetRef = localWaypoints.back();
+	}
+	curLocalIndex = 1;
+
+	return true;
+}
+
 
 int MoveTactics::getNextGlobalWaypointIndex()
 {
@@ -81,11 +107,11 @@ int MoveTactics::getNextGlobalWaypointIndex()
 	return endIndex;
 }
 
-void MoveTactics::randomLocalWay()
+void MoveTactics::randomLocalWay(const Point2D & endPoint)
 {
 	localWaypoints.clear();
 	localWaypoints.push_back(cg->getSelf().getCenter());
-	localWaypoints.push_back(cg->getSelf().getCenter().getShift(env->randomDouble(-35.0, 35.0), env->randomDouble(-35.0, 35.0)));
+	localWaypoints.push_back(endPoint.getShift(env->randomDouble(-10.0, 10.0), env->randomDouble(-10.0, 10.0)));
 }
 
 Tactics::TacticsStatus MoveTactics::work()
@@ -144,12 +170,7 @@ void MoveTactics::moveForward()
 	//Застряли
 	if (isBlockade())
 	{
-		if (!cg->calcWay(globalWaypoints[curGlobalIndex], localWaypoints))
-		{
-			randomLocalWay();			
-		}
-		curLocalIndex = 1;
-		resetLastMove();
+		targetNextGlobalWaypoint();
 		return;
 	}
 
@@ -213,55 +234,68 @@ void RetreatTactics::move()
 		return;
 	}
 
-	double nearEnemyDistance = cg->getNearEnemyDistance();
-	if (nearEnemyDistance < env->self->getCastRange())
+	if (isBestMoveBackward())
 	{
-		//Если рядом враги
-
-		if (isNearEnemyBackward())
-		{
-			moveBackward();
-		}
-		else
-		{
-			moveForward();
-		}
-
-		if (env->move->getSpeed() != 0)
-		{
-			attack();
-		}
+		moveBackward();
 	}
 	else
 	{
 		moveForward();
-	}	
-	
+	}
+
+	//TODO
+	if (env->move->getSpeed() != 0)
+	{
+		attack();
+	}
 }
 
-bool RetreatTactics::isNearEnemyBackward()
+bool RetreatTactics::isBestMoveBackward()
 {
-	//TODO Исправить
 	const model::CircularUnit * enemy = cg->getNearestEnemy();
 	if (enemy == nullptr)
 	{
+		//Врагов нет, быстрее будет идти передом
 		return false;
 	}
 
-	Point2D enemyPoint(*enemy);
-	const Point2D & targetPoint = globalWaypoints[globalWaypoints.size() - 1];
-	const Point2D & selfPoint = cg->getSelf().getCenter();
+	//Враг в зоне досигаемости выстрела
 
-	if (enemyPoint.getDistanceTo(targetPoint) > selfPoint.getDistanceTo(targetPoint))
+	if (cg->getNearEnemyDistance() > 300.0)
+	{
+		//Отошли достаточно далеко от врага, проще отступать передом 
+		return false;
+	}
+
+
+	Point2D targetPoint(localWaypoints[curLocalIndex]);
+	double targetAngle = getFastAngle(env->self->getAngleTo(targetPoint.getX(), targetPoint.getY()));
+
+	//Враг достаточно близко
+
+	//Если разворачиваться к точке отсупления передом слишком долго, то отступаем задом
+	if (std::abs(targetAngle) > PI / 2.0)
 	{
 		return true;
 	}
-
+	
 	return false;	
 }
 
 void RetreatTactics::attack()
 {
+	const model::CircularUnit * enemy = getTargetByMinAngle();
+	if (enemy == nullptr)
+	{
+		return;
+	}
+		
+	double enemyAngle = getFastAngle(env->self->getAngleTo(*enemy));	
+	if (std::abs(enemyAngle) > env->game->getStaffSector() / 2.0)
+	{
+		return;
+	}	
+	
 	double nearEnemyDistance = cg->getNearEnemyDistance();
 	model::ActionType action = model::_ACTION_UNKNOWN_;
 
@@ -278,12 +312,42 @@ void RetreatTactics::attack()
 		action = model::ACTION_MAGIC_MISSILE;
 	}
 
-	if (action != model::_ACTION_UNKNOWN_)
+	if (action == model::_ACTION_UNKNOWN_)
 	{
-		env->move->setCastAngle(0);
-		env->move->setMinCastDistance(nearEnemyDistance);//TODO
-		env->move->setAction(action);
+		return;
 	}
+
+	double enemyDistance = cg->getSelf().getCenter().getDistanceTo(*enemy);
+
+	env->move->setCastAngle(enemyAngle);
+	env->move->setMinCastDistance(enemyDistance - enemy->getRadius() + env->game->getMagicMissileRadius());
+	env->move->setAction(action);
+}
+
+const model::CircularUnit * RetreatTactics::getTargetByMinAngle()
+{
+	double bestAngleAbs = 2.0*PI;
+	const model::CircularUnit * bestTarget = nullptr;
+	
+	auto enemies = cg->getNearEnemies();
+	for (auto it = enemies.begin(); it != enemies.end(); ++it)
+	{
+		const model::CircularUnit * target = *it;
+		double targetDistance = cg->getSelf().getCenter().getDistanceTo(*target);
+		if (targetDistance > env->self->getCastRange())
+		{
+			continue;
+		}
+
+		double targetAngleAbs = std::abs(getFastAngle(env->self->getAngleTo(*target)));
+		if (targetAngleAbs < bestAngleAbs)
+		{
+			bestAngleAbs = targetAngleAbs;
+			bestTarget = target;
+		}
+	}
+
+	return bestTarget;
 }
 
 void RetreatTactics::moveBackward()
@@ -291,12 +355,7 @@ void RetreatTactics::moveBackward()
 	//Застряли
 	if (isBlockade())
 	{
-		if (!cg->calcWay(globalWaypoints[curGlobalIndex], localWaypoints))
-		{
-			randomLocalWay();			
-		}
-		curLocalIndex = 1;
-		resetLastMove();
+		targetNextGlobalWaypoint();
 		return;
 	}
 
@@ -327,7 +386,7 @@ Tactics::TacticsStatus BattleTactics::work()
 		return status;
 	}
 
-	const model::CircularUnit * target = cg->getNearestEnemy();
+	const model::LivingUnit * target = getTarget();
 	if (target == nullptr)
 	{
 		status = tsCompleted;
@@ -341,20 +400,6 @@ Tactics::TacticsStatus BattleTactics::work()
 		return status;
 	}
 
-	/*if ((cg->getNearEnemyDistance() < 150.0 && cg->getNearAllyDistance() > 150.0) || env->self->getLife() < 60.0)
-	{
-		//TODO Отступление
-		env->move->setSpeed(-1.0*env->getMaxBackwardSpeed());
-	}*/
-
-	if (env->isSkillLeanded(model::SKILL_SHIELD) && env->self->getMana() > 60)
-	{
-		if (env->getActionRechargeTime(model::ACTION_SHIELD) == 0)
-		{
-			env->move->setAction(model::ACTION_SHIELD);
-			return status;
-		}
-	}
 
 	double angle = getFastAngle(env->self->getAngleTo(*target));
 	if (std::abs(angle) > env->game->getStaffSector() / 2.0)
@@ -363,14 +408,14 @@ Tactics::TacticsStatus BattleTactics::work()
 		return status;
 	}
 
-	if (distance < (target->getRadius() + 35.0 + 70.0)  && env->getActionRechargeTime(model::ACTION_STAFF) == 0)
+	if (env->isSkillLeanded(model::SKILL_SHIELD) && env->getActionRechargeTime(model::ACTION_SHIELD) == 0 && env->self->getMana() > 60)
 	{
-		env->move->setAction(model::ACTION_STAFF);
+		env->move->setAction(model::ACTION_SHIELD);
 		return status;
 	}
 
 	model::ActionType action = model::_ACTION_UNKNOWN_;
-	if(env->isSkillLeanded(model::SKILL_FROST_BOLT) && env->self->getMana() > 48 && env->getActionRechargeTime(model::ACTION_FROST_BOLT) == 0)
+	if(env->isSkillLeanded(model::SKILL_FROST_BOLT) && env->getActionRechargeTime(model::ACTION_FROST_BOLT) == 0 && env->self->getMana() > 48)
 	{
 		action = model::ACTION_FROST_BOLT;
 	}
@@ -381,6 +426,21 @@ Tactics::TacticsStatus BattleTactics::work()
 
 	if (action == model::_ACTION_UNKNOWN_)
 	{
+		if (std::abs(angle) > ANGLE_ACCURACY)
+		{
+			env->move->setTurn(angle);
+		}
+
+		if (target->getLife() < 40)
+		{
+			env->move->setSpeed(env->getMaxForwardSpeed());
+		}
+		
+		auto nearestEnemy = cg->getNearestEnemy();
+		if (cg->getNearEnemyDistance() < (nearestEnemy->getRadius() + 35.0 + 70.0) && env->getActionRechargeTime(model::ACTION_STAFF) == 0)
+		{
+			env->move->setAction(model::ACTION_STAFF);
+		}
 		return status;
 	}
 		
@@ -388,12 +448,104 @@ Tactics::TacticsStatus BattleTactics::work()
 	env->move->setMinCastDistance(distance - target->getRadius() + env->game->getMagicMissileRadius());
 	env->move->setAction(action);
 
-	if (env->move->getSpeed() == 0.0)
+	return status;
+}
+
+const model::LivingUnit * BattleTactics::getTarget()
+{
+	const model::LivingUnit * bestByMinDistance = cg->getNearestEnemy();
+	if (cg->getNearEnemyDistance() < 150.0)
 	{
-		env->move->setTurn(angle);
+		return bestByMinDistance;
+	}	
+	
+	double minLife = 9001.0;
+	int maxLevel = -1;
+	double minAngle = 2.0 * PI;
+	
+	const model::LivingUnit * bestTarget = nullptr;
+	const model::LivingUnit * bestByMinAngle = nullptr;
+	const model::LivingUnit * bestByMinLife = nullptr;
+	const model::LivingUnit * bestByMaxLevel = nullptr;
+	const model::LivingUnit * bestByBuilding = nullptr;
+	
+	auto enemies = cg->getNearEnemies();
+	for (auto&  enemy : enemies)
+	{
+		double targetDistance = cg->getSelf().getCenter().getDistanceTo(*enemy);
+		if (targetDistance > env->self->getCastRange())
+		{
+			continue;
+		}
+
+		double life = enemy->getLife();
+		if ((life == minLife) && (bestByMinLife != nullptr) && (enemy->getId() < bestByMinLife->getId()))
+		{
+			bestByMinLife = enemy;
+		}
+		else if (life < minLife)
+		{
+			minLife = life;
+			bestByMinLife = enemy;
+		}
+
+		double angleAbs = std::abs(getFastAngle(env->self->getAngleTo(*enemy)));
+		if (angleAbs < minAngle)
+		{
+			minAngle = angleAbs;
+			bestByMinAngle = enemy;
+		}
+
+		const model::Building * building = dynamic_cast<const model::Building *>(enemy);
+		if (building != nullptr)
+		{
+			bestByBuilding = enemy;
+		}
+
+		const model::Wizard * enemyWizard = dynamic_cast<const model::Wizard *>(enemy);
+		if (enemyWizard == nullptr)
+		{
+			continue;
+		}
+		
+		int level = enemyWizard->getLevel();
+		if ( (level == maxLevel) && (bestByMaxLevel != nullptr) && (enemyWizard->getLife() < bestByMaxLevel->getLife()) )
+		{
+			bestByMaxLevel = enemy;
+		}		
+		else if (level > maxLevel)
+		{
+			maxLevel = level;
+			bestByMaxLevel = enemy;
+		}
 	}
 
-	return status;
+	if (env->self->getLife() < 50.0 && bestByMinAngle != nullptr)
+	{
+		return bestByMinAngle;
+	}
+	else if (bestByMinLife != nullptr && bestByMinLife->getLife() < 25.0)
+	{
+		return bestByMinLife;
+	}
+	else if (bestByMaxLevel != nullptr)
+	{
+		return bestByMaxLevel;
+	}
+	else if (bestByBuilding != nullptr)
+	{
+		return bestByBuilding;
+	}
+	else if (bestByMinLife != nullptr)
+	{
+		return bestByMinLife;
+	}
+	else if (bestByMinAngle != nullptr)
+	{
+		return bestByMinAngle;
+	}
+
+	return bestByMinDistance;
 }
 
 BattleTactics::~BattleTactics()

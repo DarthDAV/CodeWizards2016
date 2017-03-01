@@ -92,6 +92,7 @@ namespace dav
 
 		bool calcWayByLane(const Point2D & endPoint, std::vector<Point2D> & result) const;
 		bool calcWay(const Point2D & desiredEndPoint, std::vector<Point2D> & result) const;
+		bool calcWayForce(const Point2D & desiredEndPoint, std::vector<Point2D> & result) const;
 
 		double getNearEnemyDistance()  const
 		{
@@ -103,22 +104,22 @@ namespace dav
 			return locMap.getAllyDistance();
 		}
 
-		const std::vector<const model::CircularUnit *> & getNearEnemies( ) const
+		const std::vector<const model::LivingUnit *> & getNearEnemies( ) const
 		{
 			return locMap.getEnemies();
 		}
 
-		const std::vector<const model::CircularUnit *> &  getNearAllies() const
+		const std::vector<const model::LivingUnit *> &  getNearAllies() const
 		{
 			return locMap.getAllies();
 		}
 		
-		const model::CircularUnit * getNearestEnemy() const
+		const model::LivingUnit * getNearestEnemy() const
 		{
 			return locMap.getNearestEnemy();
 		}
 
-		const model::CircularUnit *getNearestAlly() const
+		const model::LivingUnit *getNearestAlly() const
 		{
 			return locMap.getNearestAlly();
 		}
